@@ -1,0 +1,8 @@
+# Generated or sensitive-by-accident reports stay on the hub
+reports/runs/
+reports/tx-log/
+reports/audit.log
+
+.DS_Store
+__pycache__/
+*.pyc

@@ -1,0 +1,65 @@
+schema: structs-devops/site/v1
+id: __SITE_ID__
+kind: public-node
+name: __FQDN__
+description: >-
+  Public RPC/LCD node. List who depends on it under dependents; every change
+  is announced first and checked against them.
+network: structstestnet-111
+owner: { team: __SITE_ID__ }
+last_verified: __TODAY__
+unverified: [nodes, tls]
+
+dependents: [replace-me]
+
+hosts:
+  - id: __HOST_ID__
+    fqdn: __FQDN__
+    ipv4: __IPV4__
+    ssh: __SSH__
+    os: ubuntu
+    tools_path: /opt/structs-devops
+
+stacks:
+  - id: node
+    host: __HOST_ID__
+    path: /home/docker/docker-structs-guild
+    compose: [compose.yaml]
+    services:
+      structsd: { container: docker-structs-guild-structsd-1, image: structs/structsd:latest }
+
+nodes:
+  - host: __HOST_ID__
+    container: docker-structs-guild-structsd-1
+    role: full                       # full | archive
+    rpc: http://127.0.0.1:26657
+    volume: structsd-chaindata
+    # app_toml_overrides: app-toml.overrides
+
+endpoints:
+  - { id: lcd-node-info, url: "https://__FQDN__/cosmos/base/tendermint/v1beta1/node_info", expect: 200 }
+  - { id: rpc-status, url: "https://__FQDN__:26657/status", expect: 200 }
+  - { id: p2p, tcp: "__IPV4__:26656" }
+
+tls:
+  - { names: [__FQDN__], ports: [443, 26657], manager: caddy-acme }
+
+secrets:
+  node_key:
+    ref: "host-volume:__HOST_ID__:structsd-chaindata/config/node_key.json"
+    criticality: medium
+    backup: none
+    rotation: "devops node __SITE_ID__ rotate-node-key"
+    used_by: [structsd]
+
+checks:
+  extra: [app-toml, archive-growth]
+
+procedures:
+  structsd-restart:
+    description: Restart structsd (preferred over recreate).
+    steps:
+      - { ssh: "docker compose restart structsd", stack: node, tier: 2 }
+      - { check: block-progress }
+
+known_issues: []

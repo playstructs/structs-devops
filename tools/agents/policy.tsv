@@ -1,0 +1,127 @@
+# Command policy shared by `devops ssh -- <cmd>`, tools/agents/guard.sh (harness
+# hooks) and agents reading this file. Columns (tab-separated):
+#   tier   kind   pattern   reason
+# kind "re"  : Python regex searched in the whole command; the highest matching tier wins.
+# kind "cmd" : read-only allowlist prefix. A command is tier 0 only when EVERY
+#              segment (split on ; && || | and newlines) starts with an allowlisted prefix.
+# kind "secret": the command would print secret material; always refused.
+# Anything else defaults to tier 2 (service-affecting: ask the user first).
+# Built into classify.py: `docker exec <c> <cmd>` is judged by <cmd>, and psql is
+# tier 0 only with PGOPTIONS default_transaction_read_only=on (a SELECT can write
+# through a function). Prefer `devops debug pg`, which always sets it.
+# git: only -C <path>, -c safe.directory=<path> and --no-pager may precede the
+# subcommand; any other git option makes the segment tier 2.
+#
+# --- refused: prints secret material ---
+S	secret	(cat|less|more|head|tail|grep|sed|awk|strings|xxd|base64)\b[^|;&]*(\.env\b|secrets\.env|priv_validator_key|node_key\.json|userlist\.txt|signing\.key|\.compatibility-token|mnemonic)	prints secret files
+S	secret	\bstructsd\s+keys\s+(export|show\b[^|;&]*--unarmored|mnemonic)	exports key material
+S	secret	\bkeys\s+add\b[^|;&]*--output\s+json	keys add --output json prints the mnemonic
+S	secret	(^|[\s|;&(])(printenv|env)\s*($|[|;&)])	dumps environment
+S	secret	docker\s+inspect\b[^|;&]*\.Config\.Env|docker\s+exec\b[^|;&]*\b(printenv|env)\b	dumps container environment
+S	secret	\becho\s+["']?\$\{?[A-Z_]*(MNEMONIC|SECRET|PASSWORD|TOKEN|KEY)\b	echoes a secret variable
+# --- tier 3: irreversible, on-chain, keys, data loss ---
+3	re	\bstructsd\s+tx\b(?![^|;&]*--dry-run)(?![^|;&]*--generate-only)	broadcasts a transaction (use devops tx)
+3	re	\bstructsd\s+keys\s+(add|delete|import|rename)\b	key management (use devops account)
+3	re	\b(unsafe-reset-all|reset-state|rollback)\b	chain data reset or rollback
+3	re	\brm\s+-[a-zA-Z]*[rf][a-zA-Z]*\s+[^|;&]*(chaindata|cosmovisor|/data\b|/var/lib/docker|pgdata|postgres)	deletes chain or database data
+3	re	docker\s+(volume\s+(rm|prune)|system\s+prune|compose\b[^|;&]*\bdown\b[^|;&]*(-v|--volumes))	deletes docker volumes
+3	re	(?i)\b(drop\s+(table|database|schema|role)|truncate\s+table|delete\s+from)\b	destructive SQL
+3	re	\bstructs-pg-init\b	never run structs-pg-init on a live site
+3	re	certbot\b[^|;&]*--dry-run	certbot --dry-run runs the pre_hook (stops Caddy) on the public node
+# --- tier 2: service-affecting ---
+2	re	docker\s+compose\b[^|;&]*\b(up|down|restart|stop|start|kill|rm|pull|build|create)\b	changes compose services
+2	re	docker\s+(restart|stop|start|kill|rm|run|pull|update)\b	changes containers
+2	re	systemctl\s+(restart|stop|start|reload|disable|enable|kill)\b	changes system services
+2	re	\b(reboot|shutdown|poweroff|halt)\b	host power
+2	re	\b(apt|apt-get|dpkg|snap)\s+(install|remove|purge|upgrade|dist-upgrade)\b	package changes
+2	re	\b(ufw|iptables|nft)\b\s+(?!status|-L|list)	firewall changes
+2	re	\bgit\b(\s+-[Cc]\s+\S+)*\s+(pull|reset|checkout|restore|clean|stash|merge|rebase|switch|am|apply|commit|push)\b	changes a deployed checkout
+2	re	\bcurl\b[^|;&]*(\s(-X|--request)\s*["']?(POST|PUT|PATCH|DELETE)|\s(-d|--data[a-z-]*|-F|--form|-T|--upload-file)\s)	HTTP write request
+2	re	\bfind\b[^|;&]*\s-(delete|exec|execdir|ok)\b	find that deletes or runs commands
+2	re	\bjournalctl\b[^|;&]*--(vacuum-[a-z]+|rotate|flush)	changes the journal
+2	re	(^|[^<>&2])>{1,2}\s*[^&\s]	writes a file by redirect
+2	re	\b(sed\s+-i|tee|mv|cp|rm|chmod|chown|truncate|ln)\b	changes files
+2	re	\bphp\s+bin/console\s+(?!debug:|about|list)	Symfony console command with side effects
+2	re	\bnpm\s+(run|install|ci)\b	builds or installs
+2	re	(?i)\b(insert\s+into|update\s+(only\s+)?[\w."]+(\s+(as\s+)?\w+)?\s+set|merge\s+into|copy\s+[\w."]+\s+from|alter\s+|create\s+|grant\s+|revoke\s+|vacuum\b|reindex|cluster\b|pg_terminate_backend|pg_cancel_backend|pg_reload_conf|setval|nextval|lo_import|lo_export)\b	writing SQL
+2	re	\bpgbouncer\b[^|;&]*\b(RELOAD|PAUSE|KILL|SHUTDOWN|RESUME)\b	PgBouncer admin
+2	re	\bkill\s+-HUP\b|docker\s+kill\s+-s	signals a process
+# --- tier 0 allowlist (prefixes) ---
+0	cmd	docker ps	read-only
+0	cmd	docker logs	read-only
+0	cmd	docker inspect	read-only
+0	cmd	docker stats --no-stream	read-only
+0	cmd	docker images	read-only
+0	cmd	docker image ls	read-only
+0	cmd	docker image inspect	read-only
+0	cmd	docker volume ls	read-only
+0	cmd	docker volume inspect	read-only
+0	cmd	docker system df	read-only
+0	cmd	docker compose ps	read-only
+0	cmd	docker compose ls	read-only
+0	cmd	docker compose logs	read-only
+0	cmd	docker compose config	read-only
+0	cmd	docker compose images	read-only
+0	cmd	cd	navigation
+0	cmd	ls	read-only
+0	cmd	cat	read-only (secret rules still apply)
+0	cmd	head	read-only
+0	cmd	tail	read-only
+0	cmd	grep	read-only
+0	cmd	rg	read-only
+0	cmd	wc	read-only
+0	cmd	sort	read-only
+0	cmd	uniq	read-only
+0	cmd	cut	read-only
+0	cmd	awk	read-only
+0	cmd	jq	read-only
+0	cmd	find	read-only
+0	cmd	stat	read-only
+0	cmd	du	read-only
+0	cmd	df	read-only
+0	cmd	free	read-only
+0	cmd	uptime	read-only
+0	cmd	nproc	read-only
+0	cmd	uname	read-only
+0	cmd	hostname	read-only
+0	cmd	date	read-only
+0	cmd	whoami	read-only
+0	cmd	id	read-only
+0	cmd	ps	read-only
+0	cmd	top -b -n1	read-only
+0	cmd	vmstat	read-only
+0	cmd	iostat	read-only
+0	cmd	ss	read-only
+0	cmd	netstat	read-only
+0	cmd	ip addr	read-only
+0	cmd	dig	read-only
+0	cmd	host	read-only
+0	cmd	curl	read-only (no -X POST/PUT/DELETE; write rules still apply)
+0	cmd	openssl s_client	read-only
+0	cmd	openssl x509	read-only
+0	cmd	journalctl	read-only
+0	cmd	systemctl status	read-only
+0	cmd	systemctl is-active	read-only
+0	cmd	systemctl list-units	read-only
+0	cmd	systemctl list-timers	read-only
+0	cmd	caddy validate	read-only
+0	cmd	caddy version	read-only
+0	cmd	nginx -t	read-only
+0	cmd	readlink	read-only
+0	cmd	git log	read-only
+0	cmd	git status	read-only
+0	cmd	git rev-parse	read-only
+0	cmd	git diff	read-only
+0	cmd	git show	read-only
+0	cmd	structsd status	read-only
+0	cmd	structsd query	read-only
+0	cmd	structsd version	read-only
+0	cmd	structsd keys list	read-only (addresses only)
+0	cmd	structsd keys show	read-only (address only; --unarmored is refused)
+0	cmd	echo	read-only
+0	cmd	printf	read-only
+0	cmd	true	no-op
+0	cmd	sleep	no-op
+0	cmd	devops	the devops CLI gates its own actions
+0	cmd	./bin/devops	the devops CLI gates its own actions
+0	cmd	bin/devops	the devops CLI gates its own actions

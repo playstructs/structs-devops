@@ -1,0 +1,32 @@
+# A merge to structs-webapp main, carried into this guild's own branch and
+# deployed. Format: docs/pipelines.md in the framework. Every publish waits for
+# an approval token.
+schema: structs-devops/pipeline/v1
+id: webapp-guild-branch
+description: structs-webapp main -> merge into guild-custom -> deploy to the guilds that track it.
+
+trigger:
+  repo: structs-webapp
+  ref: main
+  on_change: notify          # notify | prepare (prepare also runs checks and agent fixes; nothing is pushed)
+
+stages:
+  - id: guild-custom
+    repo: structs-webapp
+    branch: guild-custom
+    update: {merge: origin/main}
+    check: [merge-clean]
+    fix: {skill: structs-dev-merge-upstream, attempts: 1}
+    verify:
+      - npm --prefix src ci
+      - npm --prefix src run build
+    publish:
+      push: true
+      triggers: "nothing builds on push; the deploy stage rolls it out"
+
+  - id: deploy
+    needs: [guild-custom]
+    deploy:
+      repo: structs-webapp
+      ref: guild-custom         # every site whose site.yaml sources track structs-webapp@guild-custom
+      procedure: webapp-update

@@ -1,0 +1,76 @@
+# Hub schedules. Jobs run on the workspace machine and reach hosts over
+# outbound ssh/https only. When the hub sleeps or is off, nothing runs; each
+# job records the gap and says so in its report (lib/job.sh).
+#
+# Fields:
+#   interval_seconds  expected spacing; used for gap detection
+#   launchd           StartInterval seconds, or calendar {Hour, Minute[, Weekday]}
+#   cron              crontab schedule for Linux hubs
+#   script            crons/jobs/<script>
+#   covers            which items of the original ops wishlist this job serves
+schema: structs-devops/schedules/v1
+
+jobs:
+  hourly-health:
+    description: Host CPU/RAM/disk, block progression, heights, containers, endpoints, Postgres, TSA queue, sync lag.
+    interval_seconds: 3600
+    launchd: {interval: 3600}
+    cron: "7 * * * *"
+    script: hourly-health.sh
+    covers: [hourly health check, cpu disk ram, block progression, tsa queue]
+
+  daily-network:
+    description: Daily group over all sites (validator, patches drift, secrets audit, app.toml, certbot, archive growth, structs.app, inventory freshness).
+    interval_seconds: 86400
+    launchd: {calendar: {Hour: 8, Minute: 15}}
+    cron: "15 8 * * *"
+    script: daily-network.sh
+    covers: [daily network check, system checks]
+
+  tls-expiry:
+    description: Certificate expiry for every declared name and port, plus certbot renewal path on certbot sites.
+    interval_seconds: 86400
+    launchd: {calendar: {Hour: 7, Minute: 45}}
+    cron: "45 7 * * *"
+    script: tls-expiry.sh
+    covers: [tls expiry check]
+
+  new-updates:
+    description: Fetch .references, report new structsd tags, image digests, moved repo heads, releasable pins.
+    interval_seconds: 86400
+    launchd: {calendar: {Hour: 9, Minute: 0}}
+    cron: "0 9 * * *"
+    script: new-updates.sh
+    covers: [new updates]
+
+  gov-watch:
+    description: New proposals (deposit or voting) and inventory voters who have not voted. Reminds; never votes.
+    interval_seconds: 21600
+    launchd: {interval: 21600}
+    cron: "20 */6 * * *"
+    script: gov-watch.sh
+    covers: [chain governance, pending votes, chain updates - voting]
+
+  upgrade-watch:
+    description: Chain upgrade lifecycle. Voting -> preparing (binary staged on every node) -> update window (monitors) -> post-upgrade system checks.
+    interval_seconds: 1800
+    launchd: {interval: 1800}
+    cron: "*/30 * * * *"
+    script: upgrade-watch.sh
+    covers: [chain updates - preparing, update window, system checks]
+
+  pipeline-watch:
+    description: Dev pipeline triggers (inventory/pipelines/*.yaml). Notifies when a trigger ref moved; on_change prepare also prepares stages hub-locally. Never publishes.
+    interval_seconds: 3600
+    launchd: {interval: 3600}
+    cron: "37 * * * *"
+    script: pipeline-watch.sh
+    covers: [dev pipeline]
+
+  weekly-digest:
+    description: One summary of the week's health runs, gaps, tx log and journal entries.
+    interval_seconds: 604800
+    launchd: {calendar: {Weekday: 1, Hour: 9, Minute: 30}}
+    cron: "30 9 * * 1"
+    script: weekly-digest.sh
+    covers: [reporting]

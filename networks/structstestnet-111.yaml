@@ -1,0 +1,91 @@
+schema: structs-devops/network/v1
+# Public facts about the Structs testnet, shared by every operator. An
+# inventory's network.yaml names this preset (`preset: structstestnet-111`) and
+# adds its own values on top (gov voters, which site serves the public node,
+# the image digests it expects, peers, threshold overrides). Maps merge;
+# lists in the inventory replace the preset's.
+id: structstestnet-111
+chain_id: structstestnet-111
+bech32_prefix: structs
+denom: ualpha
+block_time_seconds: 6
+# Branch of playstructs/structs-networks used by network-config.sh. Only read on
+# a fresh init; existing hosts may still carry older values (112b, 115b) in .env.
+network_version: 116b
+last_verified: 2026-11-05
+
+binary:
+  version: v0.22.0
+  since_height: 3353000
+  cosmovisor_current: upgrades/v0.22.0
+  cosmovisor_version: v1.7.0
+  git_commit: 96cea3a322c406b46ca1feb880dc4497ebd9353f
+  cometbft: 0.38.26
+
+# From docker-structsd/scripts/upgrades.conf.sh; append on every upgrade.
+upgrades:
+  - { name: v0.16.0, height: 385730 }
+  - { name: v0.17.0, height: 867678 }
+  - { name: v0.18.0, height: 1173255, date: 2026-06-14 }
+  - { name: v0.19.0, height: 1335904 }
+  - { name: v0.21.0, height: 2283000, date: 2026-08-24 }
+  - { name: v0.22.0, height: 3353000, proposal: 7 }
+
+# Public endpoints every client can use. Peers: playstructs/structs-networks
+# addrbook.json, or your own list in the inventory's network.yaml.
+endpoints:
+  rpc: https://public.testnet.structs.network:26657
+  lcd: https://public.testnet.structs.network
+  websocket: wss://public.testnet.structs.network:26657/websocket
+  grpc: public.testnet.structs.network:9090
+  p2p: public.testnet.structs.network:26656
+
+gov:
+  vote_policy: never-automatic   # crons list pending votes; a human approves each vote
+
+# Defaults for check thresholds. The inventory's network.yaml can override any
+# of them, and a site can override them again under .checks.
+check_defaults:
+  host:
+    load_per_core_warn: 1.5
+    load_per_core_crit: 3.0
+    mem_avail_pct_warn: 15
+    mem_avail_pct_crit: 5
+    swap_used_pct_warn: 50
+    disk_used_pct_warn: 85
+    disk_used_pct_crit: 93
+    disk_days_left_warn: 30
+    disk_days_left_crit: 10
+  chain:
+    stall_seconds_warn: 60
+    stall_seconds_crit: 180
+    blocks_per_hour_min: 400
+    peers_min: 3
+    lag_blocks_warn: 20
+    lag_blocks_crit: 200
+  sync:
+    lag_blocks_warn: 20
+    lag_blocks_crit: 200
+  tsa:
+    pending_warn: 50
+    pending_crit: 500
+    oldest_pending_warn_min: 30
+    oldest_pending_crit_min: 120
+    available_accounts_min: 2
+  pg:
+    conn_pct_warn: 70
+    conn_pct_crit: 90
+  bouncer:
+    cl_waiting_warn: 1
+    cl_waiting_crit: 20
+  apache:
+    busy_pct_warn: 70
+    busy_pct_crit: 90
+  tls:
+    days_warn: 21
+    days_crit: 7
+  inventory:
+    stale_days: 30
+  heights:
+    disagree_blocks_warn: 5
+    disagree_blocks_crit: 50

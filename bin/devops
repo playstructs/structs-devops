@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# structs-devops command line. `devops help` lists commands with their tiers.
+set -euo pipefail
+
+_self="$0"
+while [ -L "$_self" ]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  case "$_self" in /*) ;; *) _self="$_dir/$_self" ;; esac
+done
+DEVOPS_ROOT="$(cd "$(dirname "$_self")/.." && pwd)"
+export DEVOPS_ROOT
+# shellcheck source=../lib/common.sh
+. "$DEVOPS_ROOT/lib/common.sh"
+
+# Global flags can appear anywhere (also after `--`), so they are stripped
+# before dispatch. --dry-run is only global before a `--`.
+ARGS=()
+DISPLAY_ARGS=()
+seen_dd=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --approve) [ $# -ge 2 ] || usage_die "--approve needs a token"; DEVOPS_APPROVE="$2"; shift 2; continue ;;
+    --approve=*) DEVOPS_APPROVE="${1#--approve=}"; shift; continue ;;
+    --yes-public) DEVOPS_YES_PUBLIC=1; shift; continue ;;
+    --no-notify) DEVOPS_NO_NOTIFY=1; shift; continue ;;
+    --) seen_dd=1 ;;
+    --dry-run) if [ -z "$seen_dd" ]; then DEVOPS_DRY_RUN=1; DISPLAY_ARGS+=("$1"); shift; continue; fi ;;
+  esac
+  ARGS+=("$1"); DISPLAY_ARGS+=("$1"); shift
+done
+export DEVOPS_APPROVE="${DEVOPS_APPROVE:-}" DEVOPS_YES_PUBLIC="${DEVOPS_YES_PUBLIC:-}" \
+  DEVOPS_NO_NOTIFY="${DEVOPS_NO_NOTIFY:-}" DEVOPS_DRY_RUN="${DEVOPS_DRY_RUN:-}"
+DEVOPS_ARGV="$(quote_argv ${DISPLAY_ARGS[@]+"${DISPLAY_ARGS[@]}"})"
+export DEVOPS_ARGV
+
+set -- ${ARGS[@]+"${ARGS[@]}"}
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift
+
+T="$DEVOPS_ROOT/tools"
+run() { local s="$1"; shift; [ -x "$s" ] || die "not executable: $s"; exec "$s" "$@"; }
+
+usage() {
+  cat <<'EOF'
+devops <command> [args]          Structs infrastructure workspace CLI
+
+Tiers: [0] read-only  [1] reversible + backup  [2] service-affecting (approval)
+       [3] irreversible / on-chain / keys (approval + simulate)
+
+Workspace
+  init [--example] [dir]         [0] create your inventory repo (git init, no commit)
+  context                        [0] your inventory's AGENTS.md (sites, current state) + latest journal
+  doctor                         [0] hub tools, BatchMode ssh to every host, adapters
+  refs sync|status [repo...]     [0] clone/fetch .references, show pins vs remote
+  inventory validate|render [--check]|show [site]|discover <site>|env <site>   [0]
+  site list|show <site>|new <id> --kind guild|public-node|local   [0]
+  journal add|show [n]           [0] session hand-offs (inventory/reports/journal/)
+  agents sync [--check]|lint|bundle [--site S] [--skill K]|doctor   [0]
+  publish-check [--markers|--files]   [0] fail if framework files name anything in your inventory
+
+Observe
+  health [site|all|network] [hourly|daily]   [0] a check group (default: all hourly)
+  check <id> [site] | checks     [0] run one check | list the catalog
+  ps <site>                      [0] compose services on every stack
+  logs <site> <service> [n]      [0] last n log lines (default 200)
+  ssh <site|host> [-- cmd]       [0-3] shell for humans; a command is classified and gated
+  debug <tool> ...               [0] snapshot | pg | http-trace | nginx-top |
+                                     compare-nodes | grass-tap | oidc-probe
+  secrets list|audit [site]      [0] pointers and audit (never reads values)
+  secrets scan [--staged]        [0] scan the workspace for leaked values
+  secrets hook install|remove    [1] pre-commit scan hook (framework and inventory repos)
+  gov list|show <id>|verify [id] [0] proposals, tallies, inventory voters
+  upgrade status|preflight <site>    [0] plan, ETA, staged binaries
+  node <site> status             [0] structsd height, peers, cosmovisor, disk
+  host status|files <site> [host]    [0] bundle version on the host
+  webapp <site> status           [0] git ref, image, key env presence
+  onchain <site> show            [0] guild, player, validator vs inventory
+  account list [site]            [0] on-chain accounts and secret pointers
+
+Change
+  host sync <site> [host]        [1] push tools bundle + site patches to tools_path
+  patches <site> list|check      [0]
+  patches <site> apply [--only ID] [--restart]   [1] backups on host ([2] with --restart)
+  node <site> app-toml check|apply   [0]/[1] archive app.toml overrides
+  node <site> rotate-node-key    [2] new P2P identity
+  webapp <site> env-restore|ga4  [1] restore OIDC keys after a pull | insert GA4
+  webapp <site> oidc-from-tel    [2] OIDC from structs-tel, clears Symfony cache
+  webapp <site> structs-app-update [--status]   [2] rebuild + recreate structs.app
+  restart <site> <service...>    [2] docker compose restart (never recreate)
+  deploy <site> list | <procedure> [--dry-run] [--from-step N]   [2] site.yaml procedure
+  upgrade monitor install|stop <site>   [1] host-side height watcher
+  upgrade monitor tail <site>    [0]
+  cron list|status|logs <job>|run <job>   [0]
+  cron install [job...] [--crontab]|uninstall   [1] hub schedules (launchd/crontab)
+
+Develop (inventory/pipelines/*.yaml: carry an upstream change through the repos that consume it)
+  pipeline list|validate|status [pipeline] [--deployed]   [0]
+  pipeline run <pipeline> [--stage S] [--continue] [--force] [--no-agent]   [1] hub-local clones:
+                                     update, check, agent fix, commit, verify; nothing is pushed
+  pipeline show [run] [stage] [--diff|--check|--prompt|--agent|--log]       [0]
+  pipeline publish <run> <stage> [--site S]   [2] push the prepared commit ([3] with a release tag);
+                                     deploy stages run devops deploy with its own approval
+  pipeline watch                     [0] notify when a trigger ref moves (cron: pipeline-watch)
+  pipeline discard <run> [stage...]  [0] prepared commits will not be published
+
+Chain (signing happens on the host; values never reach the hub)
+  tx <site> <account> -- <module> <msg> [flags] [-- args]   [0] simulate; --broadcast [3]
+  gov vote <id> yes|no|abstain|no_with_veto --as <site>.<account> [--broadcast]   [3]
+  account create-key <site> <name>           [3] mnemonic generated and kept on host
+  account create-player <site> <name> [--guild-id ID] [--username U]   [3] guild signup
+  onchain <site> guild-endpoint <url> | agreement-open <provider> <duration> <capacity> |
+          allocation-create <source> <power> | allocation-connect <allocation> <substation>
+                                             [0] simulate; --broadcast [3]
+
+Global flags: --dry-run  --approve <token>  --yes-public  --no-notify
+Exit codes: 0 ok, 1 error/WARN, 2 usage/CRIT, 3 UNKNOWN, 10 approval required
+EOF
+}
+
+case "$cmd" in
+  help|-h|--help) usage ;;
+  doctor)    run "$T/doctor.sh" "$@" ;;
+  init)      run "$T/inventory/init.sh" "$@" ;;
+  context)   run "$T/inventory/context.sh" "$@" ;;
+  publish-check) exec python3 -B "$T/publish/check.py" "$@" ;;
+  refs)      run "$T/refs/refs.sh" "$@" ;;
+  inventory|inv) run "$T/inventory/inventory.sh" "$@" ;;
+  site)      run "$T/inventory/site.sh" "$@" ;;
+  journal)   run "$T/journal/journal.sh" "$@" ;;
+  agents)    run "$T/agents/agents.sh" "$@" ;;
+  health)    run "$DEVOPS_ROOT/checks/run.sh" "${2:-hourly}" "${1:-all}" ;;
+  check)     run "$DEVOPS_ROOT/checks/run-one.sh" "$@" ;;
+  checks)    run "$DEVOPS_ROOT/checks/run-one.sh" --list ;;
+  ps)        run "$T/ops/ps.sh" "$@" ;;
+  logs)      run "$T/ops/logs.sh" "$@" ;;
+  restart)   run "$T/ops/restart.sh" "$@" ;;
+  ssh)       run "$T/ops/ssh.sh" "$@" ;;
+  debug)     run "$T/debug/debug.sh" "$@" ;;
+  secrets)   run "$T/secrets/secrets.sh" "$@" ;;
+  gov)       run "$T/chain/gov.sh" "$@" ;;
+  tx)        run "$T/chain/tx.sh" "$@" ;;
+  onchain)   run "$T/chain/onchain.sh" "$@" ;;
+  account)   run "$T/accounts/account.sh" "$@" ;;
+  upgrade)   run "$T/node/upgrade.sh" "$@" ;;
+  node)      run "$T/node/node.sh" "$@" ;;
+  host)      run "$T/ops/host-sync.sh" "$@" ;;
+  patches)   run "$T/patches/patches.sh" "$@" ;;
+  webapp)    run "$T/webapp/webapp.sh" "$@" ;;
+  deploy)    run "$T/deploy/deploy.sh" "$@" ;;
+  cron)      run "$DEVOPS_ROOT/crons/cron.sh" "$@" ;;
+  pipeline|pipelines) run "$T/pipeline/pipeline.sh" "$@" ;;
+  *) err "unknown command: $cmd"; usage >&2; exit 2 ;;
+esac

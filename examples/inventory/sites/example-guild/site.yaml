@@ -1,0 +1,103 @@
+schema: structs-devops/site/v1
+id: example-guild
+kind: guild
+name: example-guild (guild.example.org)
+description: >-
+  Guild stack: player webapp, GRASS, TSA, indexer. Describe what is special here.
+network: structstestnet-111
+owner: { team: example-guild, contact: admin@guild.example.org }
+last_verified: 2026-11-06
+unverified: [stacks, secrets]      # remove entries as you confirm them
+
+hosts:
+  - id: web1
+    fqdn: guild.example.org
+    ipv4: 203.0.113.10
+    ssh: root@guild.example.org
+    os: ubuntu
+    tools_path: /opt/structs-devops
+
+host_env:
+  GUILD_ROOT: /root/docker-structs-guild
+  WEBAPP_SRC: /root/structs-webapp/src
+  WEBAPP_ENV: /root/structs-webapp/src/.env
+  CADDYFILE: /etc/caddy/Caddyfile
+  OIDC_ISSUER: https://guild.example.org
+
+# Repos checked out on the host. This guild runs its own webapp branch (main
+# plus local changes); pipelines/webapp-guild-branch.yaml merges main into it.
+sources:
+  - {repo: structs-webapp, host: web1, path: /root/structs-webapp, ref: guild-custom, commit: "0000000", pin_reason: "main plus this guild's changes"}
+
+stacks:
+  - id: guild-web
+    host: web1
+    path: /root/docker-structs-guild
+    compose: [compose.yaml]
+    services:
+      structs-pg: { image: structs/structs-pg:latest, max_connections: 100 }
+      structs-pg-auto-migrate:
+        image: structs/structs-pg:latest
+        env:
+          STRUCTS_PG_MIGRATION_MODE: branch
+          STRUCTS_PG_BRANCH: main
+          STRUCTS_PG_REF: ""
+          STRUCTS_PG_MIGRATION_TARGET: latest
+      structs-sync-state: { image: structs/structs-pg:latest }
+      structs-webapp: { image: structs/structs-webapp:latest }
+      structs-tsa: { image: structs/structs-tsa:latest, env: { TSA_WORKERS: 6 } }
+      structs-grass: {}
+      structs-nats: {}
+      structs-crawler: {}
+
+# nodes:                              # only if this host runs structsd
+#   - { host: web1, container: docker-structs-guild-structsd-1, role: validator, rpc: http://127.0.0.1:26657 }
+
+endpoints:
+  - { id: webapp, url: "https://guild.example.org/", expect: 200 }
+  - { id: guild-manifest, url: "https://guild.example.org/guild.json", expect: 200, content_type: application/json }
+  - { id: grass-wss, url: "https://guild.example.org:1443/", resolve: "guild.example.org:1443:203.0.113.10", expect: 400 }
+
+tls:
+  - { names: [guild.example.org], ports: [443], manager: caddy-acme }
+
+onchain:
+  guild: { id: "0-0", endpoint: "https://guild.example.org/guild.json" }
+  accounts:
+    guild_admin:
+      address: structs1replace
+      secret: guild_admin_mnemonic
+      gov_voter: false
+
+secrets:
+  guild_admin_mnemonic:
+    ref: "host-env:web1:/root/docker-structs-guild/.env#GUILD_MNEMONIC"
+    criticality: critical
+    backup: none
+    rotation: not-rotatable (address-bound)
+    used_by: [guild-onchain, tx]
+
+checks:
+  ignore_unhealthy: []
+  extra: [tsa-queue, sync-lag]
+
+auto_remediate: []
+
+procedures:
+  quick-recovery:
+    description: Restart the webapp (no recreate).
+    steps:
+      - { ssh: "docker compose restart structs-webapp", stack: guild-web, tier: 2 }
+      - { check: endpoints }
+  webapp-update:
+    description: Pull the webapp branch, re-apply patches, rebuild, restore OIDC.
+    steps:
+      - {backup: "/root/structs-webapp/src/.env"}
+      - {ssh: "cd /root/structs-webapp && git restore . && git pull --ff-only origin guild-custom && git rev-parse --short HEAD", tier: 1}
+      - {tool: "webapp example-guild env-restore MATRIX_SIGNIN_CLIENT_ID OIDC_ENCRYPTION_KEY", tier: 1}
+      - {tool: "host sync example-guild", tier: 1}
+      - {ssh: "docker exec docker-structs-guild-structs-webapp-1 bash -lc 'cd /src && npm run build'", tier: 2}
+      - {ssh: "docker exec docker-structs-guild-structs-webapp-1 bash -lc 'cd /src && ./bin/console cache:clear --env=prod'", tier: 2}
+      - {check: endpoints}
+
+known_issues: []

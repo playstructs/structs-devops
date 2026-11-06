@@ -1,0 +1,32 @@
+# Structs repositories cloned into .references/ by `devops refs sync`.
+# Columns (tab-separated): name  url  default_ref  group  depth  role
+#   group: core (cloned by ./setup.sh --refs core) | extra (--refs all)
+#   depth: 0 = full history, N = shallow clone of N commits
+# Read-only references: never deploy from here and never commit inside them.
+structsd	https://github.com/playstructs/structsd.git	master	core	0	Chain binary (Cosmos SDK app): modules, upgrades, CLI
+docker-structsd	https://github.com/playstructs/docker-structsd.git	main	core	0	structsd image: entrypoint, network-config.sh, cosmovisor layout
+docker-structs-guild	https://github.com/playstructs/docker-structs-guild.git	main	core	0	Guild compose stack every site runs (compose.yaml, reactor overlay)
+structs-pg	https://github.com/playstructs/structs-pg.git	main	core	0	Postgres schema, sqitch migrations, cache/signer/ledger functions
+docker-structs-pg	https://github.com/playstructs/docker-structs-pg.git	main	core	0	structs-pg image: auto-migrate, sync-state, init
+structs-webapp	https://github.com/playstructs/structs-webapp.git	main	core	1	Guild web client (Symfony + webpack), OIDC issuer for MAS
+structs-tsa	https://github.com/playstructs/structs-tsa.git	main	core	0	Transaction signing agent (signer queue workers)
+structs-grass	https://github.com/playstructs/structs-grass.git	main	core	0	GRASS: chain events -> NATS for live clients
+docker-structs-grass	https://github.com/playstructs/docker-structs-grass.git	main	core	0	GRASS image
+structs-ai	https://github.com/playstructs/structs-ai.git	main	core	1	Agent skills, onboarding scripts (create-player), game knowledge
+structs-networks	https://github.com/playstructs/structs-networks.git	main	core	0	Network definitions: chain ids, genesis, peers
+structs-tel	https://github.com/playstructs/structs-tel.git	main	core	0	Matrix stack (Synapse + MAS) for guild chat
+structs-app	https://github.com/playstructs/structs-app.git	main	extra	0	structs.app share-link site
+structs-desktop	https://github.com/playstructs/structs-desktop.git	main	extra	1	Desktop client (Tauri; structs-webapp submodule + sed anchors; v* tags release; assets source for structs.app)
+docker-structs-crawler	https://github.com/playstructs/docker-structs-crawler.git	main	extra	0	Crawler image (guild/endpoint discovery)
+docker-structs-proxy	https://github.com/playstructs/docker-structs-proxy.git	main	extra	0	Proxy image
+static-guild-def	https://github.com/playstructs/static-guild-def.git	main	extra	0	guild.json schema/examples
+structs-control	https://github.com/playstructs/structs-control.git	main	extra	0	Control tooling
+structs-discord	https://github.com/playstructs/structs-discord.git	main	extra	0	Discord bot
+structs-guild-toolbox	https://github.com/playstructs/structs-guild-toolbox.git	main	extra	0	Guild operator toolbox
+structs-kor	https://github.com/playstructs/structs-kor.git	game-layer	extra	0	Korean client: structs-webapp submodule + ko/ overlay; GitHub Pages builds from game-layer
+structs-webapp-bra	https://github.com/playstructs/structs-webapp-bra.git	main	extra	0	Brazilian Portuguese client (estrut.net): structs-webapp submodule + ptbr/ overlay; GitHub Pages builds from main
+structs-network-dashboard	https://github.com/playstructs/structs-network-dashboard.git	main	extra	0	Network dashboard
+structs-sign-proxy	https://github.com/playstructs/structs-sign-proxy.git	main	extra	0	Signing proxy
+structs-ui	https://github.com/playstructs/structs-ui.git	main	extra	0	Shared UI components
+a-la-structs	https://github.com/playstructs/a-la-structs.git	main	extra	0	Examples
+.github	https://github.com/playstructs/.github.git	main	extra	1	Org profile and shared workflows

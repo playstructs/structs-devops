@@ -1,0 +1,88 @@
+schema: structs-devops/site/v1
+id: __SITE_ID__
+kind: guild
+name: __SITE_ID__ (__FQDN__)
+description: >-
+  Guild stack: player webapp, GRASS, TSA, indexer. Describe what is special here.
+network: structstestnet-111
+owner: { team: __SITE_ID__, contact: admin@__FQDN__ }
+last_verified: __TODAY__
+unverified: [stacks, secrets]      # remove entries as you confirm them
+
+hosts:
+  - id: __HOST_ID__
+    fqdn: __FQDN__
+    ipv4: __IPV4__
+    ssh: __SSH__
+    os: ubuntu
+    tools_path: /opt/structs-devops
+
+host_env:
+  GUILD_ROOT: /root/docker-structs-guild
+  WEBAPP_SRC: /root/structs-webapp/src
+  WEBAPP_ENV: /root/structs-webapp/src/.env
+  CADDYFILE: /etc/caddy/Caddyfile
+  OIDC_ISSUER: https://__FQDN__
+
+stacks:
+  - id: guild-web
+    host: __HOST_ID__
+    path: /root/docker-structs-guild
+    compose: [compose.yaml]
+    services:
+      structs-pg: { image: structs/structs-pg:latest, max_connections: 100 }
+      structs-pg-auto-migrate:
+        image: structs/structs-pg:latest
+        env:
+          STRUCTS_PG_MIGRATION_MODE: branch
+          STRUCTS_PG_BRANCH: main
+          STRUCTS_PG_REF: ""
+          STRUCTS_PG_MIGRATION_TARGET: latest
+      structs-sync-state: { image: structs/structs-pg:latest }
+      structs-webapp: { image: structs/structs-webapp:latest }
+      structs-tsa: { image: structs/structs-tsa:latest, env: { TSA_WORKERS: 6 } }
+      structs-grass: {}
+      structs-nats: {}
+      structs-crawler: {}
+
+# nodes:                              # only if this host runs structsd
+#   - { host: __HOST_ID__, container: docker-structs-guild-structsd-1, role: validator, rpc: http://127.0.0.1:26657 }
+
+endpoints:
+  - { id: webapp, url: "https://__FQDN__/", expect: 200 }
+  - { id: guild-manifest, url: "https://__FQDN__/guild.json", expect: 200, content_type: application/json }
+  - { id: grass-wss, url: "https://__FQDN__:1443/", resolve: "__FQDN__:1443:__IPV4__", expect: 400 }
+
+tls:
+  - { names: [__FQDN__], ports: [443], manager: caddy-acme }
+
+onchain:
+  guild: { id: "0-0", endpoint: "https://__FQDN__/guild.json" }
+  accounts:
+    guild_admin:
+      address: structs1replace
+      secret: guild_admin_mnemonic
+      gov_voter: false
+
+secrets:
+  guild_admin_mnemonic:
+    ref: "host-env:__HOST_ID__:/root/docker-structs-guild/.env#GUILD_MNEMONIC"
+    criticality: critical
+    backup: none
+    rotation: not-rotatable (address-bound)
+    used_by: [guild-onchain, tx]
+
+checks:
+  ignore_unhealthy: []
+  extra: [tsa-queue, sync-lag]
+
+auto_remediate: []
+
+procedures:
+  quick-recovery:
+    description: Restart the webapp (no recreate).
+    steps:
+      - { ssh: "docker compose restart structs-webapp", stack: guild-web, tier: 2 }
+      - { check: endpoints }
+
+known_issues: []

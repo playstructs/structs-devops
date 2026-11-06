@@ -1,0 +1,19 @@
+schema: structs-devops/network/v1
+# Your additions to a public preset in the framework (networks/<preset>.yaml).
+# Maps merge into the preset; lists here replace the preset's.
+preset: structstestnet-111
+last_verified: 2026-11-06
+
+# Set this if one of your sites serves the preset's public endpoints.
+# public_node_site: my-public-node
+
+# Image digests you expect your hosts to run (node-health compares structsd).
+# images:
+#   structsd: { repo: structs/structsd, tag: latest, digest: "sha256:...", date: YYYY-MM-DD }
+
+# Peers your nodes keep (node_id@ip:port); the preset leaves them out.
+# persistent_peers: []
+
+# Accounts expected to vote on governance proposals (votes are never automatic).
+gov:
+  voters: []   # - { site: my-guild, account: guild_admin }

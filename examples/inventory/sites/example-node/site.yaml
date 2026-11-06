@@ -1,0 +1,65 @@
+schema: structs-devops/site/v1
+id: example-node
+kind: public-node
+name: node.example.org
+description: >-
+  Public RPC/LCD node. List who depends on it under dependents; every change
+  is announced first and checked against them.
+network: structstestnet-111
+owner: { team: example-node }
+last_verified: 2026-11-06
+unverified: [nodes, tls]
+
+dependents: [replace-me]
+
+hosts:
+  - id: node1
+    fqdn: node.example.org
+    ipv4: 203.0.113.20
+    ssh: root@node.example.org
+    os: ubuntu
+    tools_path: /opt/structs-devops
+
+stacks:
+  - id: node
+    host: node1
+    path: /home/docker/docker-structs-guild
+    compose: [compose.yaml]
+    services:
+      structsd: { container: docker-structs-guild-structsd-1, image: structs/structsd:latest }
+
+nodes:
+  - host: node1
+    container: docker-structs-guild-structsd-1
+    role: full                       # full | archive
+    rpc: http://127.0.0.1:26657
+    volume: structsd-chaindata
+    # app_toml_overrides: app-toml.overrides
+
+endpoints:
+  - { id: lcd-node-info, url: "https://node.example.org/cosmos/base/tendermint/v1beta1/node_info", expect: 200 }
+  - { id: rpc-status, url: "https://node.example.org:26657/status", expect: 200 }
+  - { id: p2p, tcp: "203.0.113.20:26656" }
+
+tls:
+  - { names: [node.example.org], ports: [443, 26657], manager: caddy-acme }
+
+secrets:
+  node_key:
+    ref: "host-volume:node1:structsd-chaindata/config/node_key.json"
+    criticality: medium
+    backup: none
+    rotation: "devops node example-node rotate-node-key"
+    used_by: [structsd]
+
+checks:
+  extra: [app-toml, archive-growth]
+
+procedures:
+  structsd-restart:
+    description: Restart structsd (preferred over recreate).
+    steps:
+      - { ssh: "docker compose restart structsd", stack: node, tier: 2 }
+      - { check: block-progress }
+
+known_issues: []

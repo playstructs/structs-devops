@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./local/**)",
+      "Read(./state/approvals/**)",
+      "Read(./.devops.env)",
+      "Bash(printenv:*)",
+      "Bash(env)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/tools/agents/guard.sh claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

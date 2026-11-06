@@ -1,0 +1,38 @@
+{
+  "guild": {
+    "id": "0-0",
+    "name": "Example Guild",
+    "description": "One line about the guild.",
+    "tag": "EXG",
+    "baseEnergy": "1000",
+    "logo": "https://guild.example.org/img/logo.png",
+    "domain": "example.org",
+    "webapp": "guild.example.org",
+    "website": "https://guild.example.org",
+    "socials": {
+      "bluesky": "",
+      "facebook": "",
+      "farcaster": "",
+      "instagram": "",
+      "twitch": "",
+      "x": "",
+      "youtube": "",
+      "discord_contact": "",
+      "discord_server": "",
+      "telegram_contact": "",
+      "telegram_channel": ""
+    },
+    "denom": {
+      "6": "exg",
+      "0": "uexg"
+    },
+    "services": {
+      "guild_api": "https://guild.example.org/api/",
+      "reactor_api": "https://public.testnet.structs.network/",
+      "client_websocket": "wss://public.testnet.structs.network:26657/websocket",
+      "grass_nats_websocket": "wss://guild.example.org:1443",
+      "matrix": "",
+      "explorer": ""
+    }
+  }
+}

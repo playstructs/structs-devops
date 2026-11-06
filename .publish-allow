@@ -1,0 +1,8 @@
+# Values that devops publish-check may find in framework files because they
+# are public. One per line: MARKER, or PATH-GLOB<TAB>MARKER for one path.
+# Keep this short; prefer rewriting a file with placeholders.
+
+# The public Structs share-link site; the optional structs-app-update module
+# and the structs-app check are named after it.
+structs.app
+www.structs.app

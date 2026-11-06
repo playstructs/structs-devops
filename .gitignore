@@ -1,0 +1,18 @@
+# Hub-local state, never committed
+state/
+local/
+dist/
+.devops.env
+
+# Your inventory is your own repo (sites, network overlay, pipelines, reports);
+# `devops init` creates it. Point DEVOPS_INVENTORY elsewhere to keep it outside.
+/inventory/
+
+# Harness adapters created by setup.sh
+.claude/skills
+
+# .references/ manages its own ignores (only its README, repos.tsv and .gitignore are tracked)
+
+.DS_Store
+__pycache__/
+*.pyc

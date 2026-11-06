@@ -1,0 +1,32 @@
+# structs-devops
+
+> Operations framework for Structs (Cosmos SDK game chain) infrastructure: guild stacks (Postgres, indexer, TSA signer, GRASS, webapp, Matrix), public archive nodes, validators and local Docker stacks. A hub machine manages hosts over ssh through one CLI, `bin/devops`, with enforced safety tiers. What one operator runs lives in their own inventory repo (`inventory/`, git-ignored here). Secrets are stored as pointers only.
+
+Start with AGENTS.md (session protocol, intent-to-skill router, tiers, invariants), then the operator's inventory/AGENTS.md (sites and current state; `devops context` prints it).
+
+## Core
+- [AGENTS.md](AGENTS.md): always-loaded instructions
+- [README.md](README.md): what this is, setup, command overview
+- [docs/inventory.md](docs/inventory.md): the inventory and site.yaml format, network presets, publish-check
+- [docs/secrets.md](docs/secrets.md): pointer-only secret handling
+- [docs/health-checks.md](docs/health-checks.md): every check, thresholds, how to read results
+- [docs/automations.md](docs/automations.md): hub crons, upgrade lifecycle, what is never automated
+- [docs/pipelines.md](docs/pipelines.md): dev pipelines (upstream change to consumer repos to deploys)
+- [networks/structstestnet-111.yaml](networks/structstestnet-111.yaml): public testnet facts
+
+## Skills
+- [.agents/skills/](.agents/skills/): operations (structs-deploy, -health, -migrations, -chain-upgrade, -transactions, -governance, -inventory, -secrets), debugging (structs-debug, -postgres, -http, -chain, -indexer, -tsa), dev pipelines (structs-dev-pipeline, -anchors, -translations, -merge-upstream), workflows (structs-start, -daily-check, -investigate, -change, -upgrade-prep, -vote, -handoff)
+
+## Debugging
+- [docs/debugging/data-flows.md](docs/debugging/data-flows.md): every hop with container, port, role, DSN
+- [docs/debugging/symptom-index.md](docs/debugging/symptom-index.md): symptom to cause to fix
+- [docs/debugging/postgres-reference.md](docs/debugging/postgres-reference.md): schemas, roles, connection budget
+
+## Runbooks
+- [runbooks/README.md](runbooks/README.md): index (deploy, chain upgrade, cosmovisor recovery, TLS, public node)
+
+## Example inventory (fictional)
+- [examples/inventory/AGENTS.md](examples/inventory/AGENTS.md): what an operator's inventory looks like
+- [examples/inventory/sites/example-guild/site.yaml](examples/inventory/sites/example-guild/site.yaml): a guild site
+- [examples/inventory/sites/example-node/site.yaml](examples/inventory/sites/example-node/site.yaml): a public node site
+- [examples/inventory/pipelines/webapp-guild-branch.yaml](examples/inventory/pipelines/webapp-guild-branch.yaml): merge main into a guild branch, then deploy

@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""sed shim for the sed-anchors pipeline check.
+
+Placed first on PATH while a patch script runs. For every in-place edit it
+replays each expression in order on a copy of the file and records whether
+that expression changed anything, then runs the real sed with the original
+arguments. A substitution whose anchor no longer exists upstream shows up as
+changed=false instead of passing silently.
+
+Env: SED_SHIM_REAL (path of the real sed), SED_SHIM_LOG (JSON lines output).
+"""
+import json
+import os
+import subprocess
+import sys
+
+real = os.environ.get("SED_SHIM_REAL", "/usr/bin/sed")
+log = os.environ.get("SED_SHIM_LOG")
+args = sys.argv[1:]
+
+inplace = None
+exprs = []
+flags = []
+files = []
+script_from_file = False
+i = 0
+while i < len(args):
+    a = args[i]
+    if a == "--":
+        files += args[i + 1:]
+        break
+    if a == "-i":
+        inplace = ""
+        if i + 1 < len(args) and (args[i + 1] == "" or args[i + 1].startswith(".")):
+            inplace = args[i + 1]
+            i += 1
+    elif a.startswith("-i"):
+        inplace = a[2:]
+    elif a.startswith("--in-place"):
+        inplace = a.partition("=")[2]
+    elif a in ("-e", "--expression"):
+        exprs.append(args[i + 1])
+        i += 1
+    elif a.startswith("-e") and len(a) > 2:
+        exprs.append(a[2:])
+    elif a in ("-f", "--file") or a.startswith("-f"):
+        script_from_file = True
+        flags.append(a)
+        if a in ("-f", "--file"):
+            flags.append(args[i + 1])
+            i += 1
+    elif a.startswith("-") and a != "-":
+        flags.append(a)
+    elif not exprs and not script_from_file:
+        exprs.append(a)
+    else:
+        files.append(a)
+    i += 1
+
+if log and inplace is not None and exprs and files and not script_from_file:
+    with open(log, "a") as out:
+        for f in files:
+            try:
+                with open(f, "rb") as fh:
+                    cur = fh.read()
+            except OSError:
+                for n, e in enumerate(exprs):
+                    out.write(json.dumps({"file": f, "index": n, "expr": e, "changed": False, "missing": True}) + "\n")
+                continue
+            for n, e in enumerate(exprs):
+                p = subprocess.run([real] + flags + ["-e", e], input=cur, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                changed = p.returncode == 0 and p.stdout != cur
+                out.write(json.dumps({"file": f, "index": n, "expr": e, "changed": changed, "rc": p.returncode,
+                                      "error": p.stderr.decode(errors="replace")[:300]}) + "\n")
+                if p.returncode == 0:
+                    cur = p.stdout
+
+os.execv(real, [real] + args)

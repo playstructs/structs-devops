@@ -1,0 +1,31 @@
+# Health check catalog. Columns (tab-separated):
+#   id  scope  group  applies  description
+# scope:   network (runs once) | site (runs per site)
+# group:   hourly | daily      (devops health = hourly; cron daily-network = daily)
+# applies: all | guild | public-node | local | nodes (sites with structsd) |
+#          extra (only if listed in site.yaml checks.extra) | manifest (sites with patches)
+# Sites can opt out with checks.skip: [id]. Thresholds: check_defaults in the network preset,
+# then the inventory's network.yaml, then per site under checks.<section>.
+block-progress	network	hourly	all	Public RPC height advancing; block age; blocks/hour; catching_up
+height-agreement	network	hourly	all	Heights of public RPC and every inventory node agree
+host-resources	site	hourly	all	Load per core, available memory, swap, disk used %, days until full
+containers	site	hourly	all	Compose services running and healthy; restart-count increases
+endpoints	site	hourly	all	HTTP/TCP endpoints answer as declared (status, type, JSON, CORS, latency)
+node-health	site	hourly	nodes	structsd on the site: height age, catching_up, peers, image digest
+pg-connections	site	hourly	guild	structs-pg connections vs max_connections; idle-in-transaction; longest query
+tsa-queue	site	hourly	extra	signer.tx pending/oldest/errors, available signer accounts, stuck submissions
+sync-lag	site	hourly	extra	sync-state cursor lag vs chain tip; handler errors; API projection age
+bouncer	site	hourly	extra	PgBouncer clients waiting and max wait per pool
+apache-workers	site	hourly	extra	Apache prefork workers busy vs MaxRequestWorkers
+validator	site	daily	extra	Validator bonded, not jailed, missed blocks in the signing window
+tls-expiry	site	daily	all	Days until each declared certificate expires (per name and port)
+patches-drift	site	daily	manifest	Patch manifest verify patterns still present on the host
+secrets-audit	site	daily	all	Secret pointers resolve: present, non-empty, expected mode/owner (no values read)
+app-toml	site	daily	extra	app.toml matches the site's app-toml.overrides
+certbot	site	daily	extra	certbot timer active, renewal hooks and caddy ACLs intact (never runs certbot)
+archive-growth	site	daily	extra	Archive data growth per day and projected days until the disk is full
+structs-app	site	daily	extra	structs.app healthz ok, block lag, container health
+gov-pending	network	daily	all	Proposals in voting period and which inventory voters have not voted
+upgrade-plan	network	daily	all	Scheduled software upgrade: name, height, ETA, staged on every node
+new-releases	network	daily	all	New commits/tags upstream vs .references and new image digests vs inventory
+inventory-freshness	network	daily	all	Inventory validates; last_verified age; unverified fields
