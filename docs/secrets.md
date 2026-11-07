@@ -48,7 +48,7 @@ secrets:
 - Never `cat`, `grep`, `head`, `less`, `docker exec … env`, `printenv` or `docker inspect … .Config.Env` on files or containers that hold secrets. The agent command guard (`tools/agents/policy.tsv`, class `S`) refuses these outright.
 - Never paste a value into chat, a commit, a report, the journal or an issue. Reports quote pointers and states, not values.
 - Never pass `--output json` to `structsd keys add` (it prints the mnemonic), and never capture stderr from `structsd tx` commands that recover keys.
-- Prefer the workflow tools (`devops tx`, `devops account`) to ad-hoc ssh. If you must work by hand on a host, load the value into a variable with `envget` from `tools/host/_prelude.sh` and do not echo it.
+- `devops tx` and `devops account` already keep values on the host. When you work by hand on a host, load the value into a variable (`envget` from `tools/host/_prelude.sh`) and do not echo it.
 - `local/secrets.env` is for hub-side credentials only (notifier webhooks, Matrix bot token). It is git-ignored; `devops doctor` warns if its mode is wider than `600`.
 
 ## Backups

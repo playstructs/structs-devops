@@ -1,16 +1,18 @@
 # shellcheck shell=bash
-# Operation tiers, enforced here so they apply no matter which harness (or
-# human) is driving.
+# Operation tiers. Every action carries one so the operator and the audit log
+# know what kind of change it was. Only on-chain transactions stop for approval.
 #
-#   0 read-only            runs freely
-#   1 reversible + backup  runs; callers print where backups went
-#   2 service-affecting    Approval Block + single-use token (exit 10)
-#   3 irreversible         same as 2; block must include signer, chain-id, simulate output
+#   0 read-only                       runs
+#   1 changes files or config         runs; callers print where backups went
+#   2 affects running services        runs; logged
+#   3 on-chain transaction            Approval Block + single-use token (exit 10);
+#                                     the block includes signer, chain id, simulate output
 #
 # Callers set optional context before calling gate:
 #   GATE_SITE GATE_HOST GATE_EFFECT GATE_ROLLBACK GATE_VERIFY GATE_EXTRA
 # and then:  gate <tier> "<title>" "<exact action>"
-# gate returns 0 when approved; otherwise it prints the block and exits 10.
+# gate returns 0 when the action may run; for tier 3 without an approval it
+# prints the block and exits 10.
 
 GATE_EXIT_APPROVAL=10
 APPROVAL_TTL_SECONDS="${APPROVAL_TTL_SECONDS:-600}"
@@ -18,9 +20,9 @@ APPROVAL_TTL_SECONDS="${APPROVAL_TTL_SECONDS:-600}"
 _tier_name() {
   case "$1" in
     0) echo "read-only" ;;
-    1) echo "reversible with backup" ;;
-    2) echo "service-affecting" ;;
-    3) echo "irreversible / on-chain / keys" ;;
+    1) echo "changes files or config" ;;
+    2) echo "affects running services" ;;
+    3) echo "on-chain transaction" ;;
     *) echo "unknown" ;;
   esac
 }
@@ -37,7 +39,7 @@ _gate_key() {
 _gate_block() {
   local tier="$1" title="$2" action="$3" token="${4:-}" expires="${5:-}"
   local rerun="devops ${DEVOPS_RERUN:-${DEVOPS_ARGV:-<same command>}}"
-  echo "==================== APPROVAL REQUIRED: tier $tier ($(_tier_name "$tier")) ===================="
+  echo "==================== APPROVAL REQUIRED: $(_tier_name "$tier") ===================="
   echo "Action:   $title"
   [ -n "${GATE_SITE:-}" ] && echo "Site:     $GATE_SITE${GATE_SITE_KIND:+ (kind: $GATE_SITE_KIND)}"
   [ -n "${GATE_HOST:-}" ] && echo "Host:     $GATE_HOST"
@@ -50,40 +52,19 @@ _gate_block() {
     echo "Details:"
     printf '%s\n' "$GATE_EXTRA" | sed 's/^/  /'
   fi
-  if [ "${GATE_SITE_KIND:-}" = "public-node" ]; then
-    echo "PUBLIC NODE: other sites and external users depend on it (${GATE_DEPENDENTS:-see site.yaml dependents})."
-    echo "            Announce first; the re-run also needs --yes-public."
-  fi
   if [ -n "$token" ]; then
     echo "Token:    $token (single use, expires $expires)"
-    echo "Ask the user to approve this exact action. Only after they say yes, re-run:"
-    echo "  $rerun --approve $token${GATE_NEEDS_PUBLIC:+ --yes-public}"
+    echo "Ask the user to approve this exact transaction. Only after they say yes, re-run:"
+    echo "  $rerun --approve $token"
   fi
-  echo "=========================================================================================="
+  echo "==================================================================================="
 }
 
 gate() {
   local tier="$1" title="$2" action="$3"
-  [ "$tier" -le 1 ] && return 0
-
-  # Inside an approved `devops deploy` run: the procedure was approved as a
-  # whole (site + max tier), so its steps do not re-prompt.
-  if [ -n "${DEVOPS_PROCEDURE_TOKEN:-}" ]; then
-    local pf pcreated="" pmax="" psite=""
-    pf="$(mkstate approvals)/procedure-$DEVOPS_PROCEDURE_TOKEN"
-    if [ -f "$pf" ]; then
-      read -r pcreated pmax psite < "$pf" || true
-      if [ "$tier" -le "${pmax:-0}" ] && [ "$psite" = "${GATE_SITE:-}" ] \
-         && [ $(( $(now_epoch) - ${pcreated:-0} )) -le 7200 ]; then
-        audit "APPROVED tier=$tier via=procedure token=$DEVOPS_PROCEDURE_TOKEN site=${GATE_SITE:-} host=${GATE_HOST:-} action=$(printf '%s' "$title" | tr '\n\t' '  ')"
-        return 0
-      fi
-    fi
-  fi
-
-  GATE_NEEDS_PUBLIC=""
-  if [ "${GATE_SITE_KIND:-}" = "public-node" ] && [ "${DEVOPS_YES_PUBLIC:-}" != "1" ]; then
-    GATE_NEEDS_PUBLIC=1
+  if [ "$tier" -le 2 ]; then
+    [ "$tier" -ge 1 ] && audit "RAN tier=$tier site=${GATE_SITE:-} host=${GATE_HOST:-} action=$(printf '%s' "$title" | tr '\n\t' '  ')"
+    return 0
   fi
 
   local key adir now
@@ -96,12 +77,10 @@ gate() {
     if [ -f "$f" ]; then
       read -r created fkey < "$f" || true
       if [ "$fkey" != "$key" ]; then
-        err "approval token $DEVOPS_APPROVE was issued for a different action; issuing a new block"
+        err "approval token $DEVOPS_APPROVE was issued for a different transaction; issuing a new block"
       elif [ $(( now - created )) -gt "$APPROVAL_TTL_SECONDS" ]; then
         rm -f "$f"
         err "approval token $DEVOPS_APPROVE expired; issuing a new block"
-      elif [ -n "$GATE_NEEDS_PUBLIC" ]; then
-        err "public-node action also needs --yes-public"
       else
         rm -f "$f"
         audit "APPROVED tier=$tier via=token token=$DEVOPS_APPROVE site=${GATE_SITE:-} host=${GATE_HOST:-} key=$key action=$(printf '%s' "$title" | tr '\n\t' '  ')"
@@ -112,7 +91,7 @@ gate() {
     fi
   fi
 
-  if ! is_agent && has_tty && [ -z "$GATE_NEEDS_PUBLIC" ]; then
+  if ! is_agent && has_tty; then
     _gate_block "$tier" "$title" "$action" >/dev/tty
     if tty_confirm "Proceed?"; then
       audit "APPROVED tier=$tier via=tty site=${GATE_SITE:-} host=${GATE_HOST:-} key=$key action=$(printf '%s' "$title" | tr '\n\t' '  ')"
@@ -130,9 +109,8 @@ gate() {
   exit "$GATE_EXIT_APPROVAL"
 }
 
-# Load site kind/dependents into the gate context.
+# Load the site and its kind into the gate context.
 gate_site() {
   GATE_SITE="$1"
   GATE_SITE_KIND="$(inv_kind "$1" 2>/dev/null || true)"
-  GATE_DEPENDENTS="$(inv_q "$1" '.dependents // [] | join(", ")' 2>/dev/null || true)"
 }

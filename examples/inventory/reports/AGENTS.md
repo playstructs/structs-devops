@@ -7,7 +7,7 @@
 | `<topic>-<date>/` | yes | Reviews and investigations worth keeping (e.g. `postgres-efficiency-2026-11-03/`) |
 | `runs/` | no | Check, job, deploy and debug run reports |
 | `tx-log/` | no | One TSV line per broadcast transaction |
-| `audit.log` | no | Approvals, tier-1+ actions, bundle pushes |
+| `audit.log` | no | Tier-1+ actions, transaction approvals, bundle pushes |
 
 - Never paste secret values, raw `.env` contents or full `docker inspect` output here. Quote pointers and states.
 - Incidents: what happened, timeline (UTC), impact, root cause, fix, follow-ups; add the symptom to the site's `known_issues`. If the symptom can happen to any operator, also add it (without site names) to the framework's `docs/debugging/symptom-index.md`.

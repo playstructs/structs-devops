@@ -17,10 +17,10 @@ with containers, ports, roles and DSNs, is
 - A red check whose cause is not obvious from its detail lines.
 - Before restarting anything on a site that is misbehaving.
 
-## Rules (all debugging skills)
+## Habits that pay off (all debugging skills)
 
-1. **Read only first.** Every `devops debug` tool is tier 0. SQL sessions are
-   forced read-only with a statement timeout.
+1. **Look before touching.** Every `devops debug` tool is read-only; its SQL
+   sessions are read-only with a statement timeout.
 2. **Snapshot before restarting.** A restart clears `pg_stat_activity`,
    resets restart counters and rotates logs:
    `devops debug snapshot <site>`.
@@ -28,9 +28,9 @@ with containers, ports, roles and DSNs, is
    (`devops debug pg <site> explain` enforces it).
 4. **Admin SQL over the container socket**, never through PgBouncer
    (`devops debug pg` does this for you).
-5. **Any write needs approval and a backup.** Save the affected rows to
-   `reports/` first (the `devops debug pg … sql` output is saved
-   automatically), then go through the tier gate.
+5. **Keep a copy before writing.** Save the affected rows first (the
+   `devops debug pg … sql` output is saved automatically), then write with
+   `psql` on the host.
 6. **Public node first.** Guilds index from it. If several sites go red at
    once, start with the public node (`devops check endpoints <public-node>`)
    and the network checks (`devops health network`).
@@ -58,7 +58,7 @@ and the site's `known_issues` in `inventory/sites/<site>/site.yaml`.
 3. **Route.** Pick the path from the table above and open that skill.
 4. **Bisect.** Use the hop tests in the skill; the first failing hop is the
    component. Match its logs against the skill's signatures.
-5. **Fix.** Known fix: follow it through `structs-change` (tier gates apply).
+5. **Fix.** Known fix: follow it through `structs-change` (only transactions ask).
    Unknown: stop, write down what you found, and ask.
 6. **Write up.** Journal entry (`devops journal add --site <site>`). If users
    were affected, an incident report from

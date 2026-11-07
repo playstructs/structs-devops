@@ -14,8 +14,8 @@ operator follows only its own repos. Two shapes cover most needs:
   `examples/inventory/pipelines/webapp-guild-branch.yaml` is this shape.
 
 Everything up to a local commit and a passing build happens on the hub, in
-clones under `local/pipelines/repos/` whose push URL is disabled. Every push,
-tag and deploy waits for an approval token. Operator skill:
+clones under `local/pipelines/repos/` whose push URL is disabled. Nothing
+leaves the hub until `devops pipeline publish`. Operator skill:
 [structs-dev-pipeline](../.agents/skills/structs-dev-pipeline/SKILL.md).
 
 ## Commands
@@ -32,7 +32,7 @@ devops pipeline run <id> [--dry-run]          prepare every stage that is not do
     --no-agent       never start an agent CLI; failed checks write prompt.md
     --force          prepare even when the stage already has the commit
 devops pipeline show [run] [stage] [--diff|--check|--prompt|--agent|--log|--verify]
-devops pipeline publish <run> <stage> [--site S] [--approve TOKEN]
+devops pipeline publish <run> <stage> [--site S]
 devops pipeline watch                         what cron runs: compare triggers with the last look
 devops pipeline discard <run> [stage...]      prepared commits will not be published (the next run re-prepares)
 ```
@@ -47,9 +47,9 @@ are skipped unless named with `--stage`. Each run writes a report to
 ```
 repo stage:  update -> setup -> check -> (fix by agent, up to N times) -> commit -> verify -> ready
                                    \-> needs_fix (prompt.md) -> you or any agent fix -> --continue
-             ready -> publish (approval) -> published
+             ready -> publish -> published
 deploy stage: needs earlier stages done -> compare each tracking site with the branch head
-             -> publish --site S (devops deploy, its own approval) -> deployed
+             -> publish --site S (devops deploy) -> deployed
 ```
 
 | Status | Meaning |
@@ -98,9 +98,7 @@ stages:
     publish:
       push: true
       tag: next-patch           # optional: highest vX.Y.Z on the remote + 1, annotated
-      tier: 2                   # 2 default; a tag makes it 3
       triggers: "what GitHub builds from this push"
-    gate: approve               # the only allowed value
   - id: guild-custom
     repo: structs-webapp
     branch: guild-custom
@@ -134,23 +132,23 @@ that deploys `guild-custom`. Give it its own pipeline or deploy stage.
   with `GIT_TERMINAL_PROMPT=0` after re-checking that the remote branch has
   not moved since prepare, that the commit is the one reviewed and that the
   tag is still free.
-- Approval: tier 2 for a push, tier 3 for a push plus release tag (a release
-  reaches players and cannot be recalled). Tokens are bound to the exact
-  action and expire after 10 minutes. `gate: approve` is the only accepted
-  value so no pipeline file can turn approvals off.
+- Publishing is tier 2 and runs without an approval token. A release tag
+  reaches players and cannot be recalled, so check the build before
+  publishing a tagged stage. Older pipeline files may still carry `gate:` or
+  `publish.tier`; both are ignored.
 - A trigger commit that moves a submodule backwards (an old `--sha`) is
-  marked `REWIND` in the summary and in the approval title.
+  marked `REWIND` in the summary and in the publish title.
 - Merge stages remember conflict resolutions (`git rerere` in the hub clone),
   so re-preparing after the branch moved does not need the same fix twice.
-  A reused resolution is a warning in the summary and the approval block;
+  A reused resolution is a warning in the summary and the publish output;
   review it with `show --diff` (remerge diff). Forget them with
   `rm -rf local/pipelines/repos/<repo>/.git/rr-cache`.
 - Agent guards: the agent works in the clone with the skill and the check
   output. If it commits, the commits are folded back into the worktree; if
   HEAD moves off the prepared base, the push URL changes or (for overlay
   repos) the upstream submodule is edited, the stage fails.
-- Deploys go through `devops deploy`, which prints its own plan, rollback and
-  approval.
+- Deploys go through `devops deploy`, which prints its plan and writes a run
+  report.
 
 ## Agent runners
 
@@ -165,7 +163,7 @@ agent opened in the printed clone path, or fix by hand, then `--continue`.
 | `DEVOPS_AGENT_TIMEOUT` | Seconds per attempt (default 1800) |
 | `DEVOPS_PIPELINE_VERIFY_TIMEOUT` | Seconds per verify command (default 3600) |
 | `DEVOPS_PIPELINES` | Read pipeline files from another directory (default `inventory/pipelines`) |
-| `DEVOPS_DRY_RUN=1` | `run` prints the plan; `publish` prints the approval block only |
+| `DEVOPS_DRY_RUN=1` | `run` prints the plan; `publish` prints what it would push |
 
 ## Files
 

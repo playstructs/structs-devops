@@ -22,14 +22,14 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --approve) [ $# -ge 2 ] || usage_die "--approve needs a token"; DEVOPS_APPROVE="$2"; shift 2; continue ;;
     --approve=*) DEVOPS_APPROVE="${1#--approve=}"; shift; continue ;;
-    --yes-public) DEVOPS_YES_PUBLIC=1; shift; continue ;;
+    --yes-public) shift; continue ;;  # accepted from older docs; no longer needed
     --no-notify) DEVOPS_NO_NOTIFY=1; shift; continue ;;
     --) seen_dd=1 ;;
     --dry-run) if [ -z "$seen_dd" ]; then DEVOPS_DRY_RUN=1; DISPLAY_ARGS+=("$1"); shift; continue; fi ;;
   esac
   ARGS+=("$1"); DISPLAY_ARGS+=("$1"); shift
 done
-export DEVOPS_APPROVE="${DEVOPS_APPROVE:-}" DEVOPS_YES_PUBLIC="${DEVOPS_YES_PUBLIC:-}" \
+export DEVOPS_APPROVE="${DEVOPS_APPROVE:-}" \
   DEVOPS_NO_NOTIFY="${DEVOPS_NO_NOTIFY:-}" DEVOPS_DRY_RUN="${DEVOPS_DRY_RUN:-}"
 DEVOPS_ARGV="$(quote_argv ${DISPLAY_ARGS[@]+"${DISPLAY_ARGS[@]}"})"
 export DEVOPS_ARGV
@@ -45,8 +45,9 @@ usage() {
   cat <<'EOF'
 devops <command> [args]          Structs infrastructure workspace CLI
 
-Tiers: [0] read-only  [1] reversible + backup  [2] service-affecting (approval)
-       [3] irreversible / on-chain / keys (approval + simulate)
+Tiers: [0] read-only  [1] changes files or config (backup)  [2] affects running services
+       [3] on-chain transaction: simulated, then asks for approval. Nothing else asks.
+       These commands are helpers; plain ssh, docker, git and psql work too.
 
 Workspace
   init [--example] [dir]         [0] create your inventory repo (git init, no commit)
@@ -64,7 +65,7 @@ Observe
   check <id> [site] | checks     [0] run one check | list the catalog
   ps <site>                      [0] compose services on every stack
   logs <site> <service> [n]      [0] last n log lines (default 200)
-  ssh <site|host> [-- cmd]       [0-3] shell for humans; a command is classified and gated
+  ssh <site|host> [-- cmd]       [0-2] shell, or run a command on the host (logged with its tier)
   debug <tool> ...               [0] snapshot | pg | http-trace | nginx-top |
                                      compare-nodes | grass-tap | oidc-probe
   secrets list|audit [site]      [0] pointers and audit (never reads values)
@@ -99,22 +100,22 @@ Develop (inventory/pipelines/*.yaml: carry an upstream change through the repos 
   pipeline run <pipeline> [--stage S] [--continue] [--force] [--no-agent]   [1] hub-local clones:
                                      update, check, agent fix, commit, verify; nothing is pushed
   pipeline show [run] [stage] [--diff|--check|--prompt|--agent|--log]       [0]
-  pipeline publish <run> <stage> [--site S]   [2] push the prepared commit ([3] with a release tag);
-                                     deploy stages run devops deploy with its own approval
+  pipeline publish <run> <stage> [--site S]   [2] push the prepared commit (and release tag, if any);
+                                     deploy stages run devops deploy
   pipeline watch                     [0] notify when a trigger ref moves (cron: pipeline-watch)
   pipeline discard <run> [stage...]  [0] prepared commits will not be published
 
 Chain (signing happens on the host; values never reach the hub)
   tx <site> <account> -- <module> <msg> [flags] [-- args]   [0] simulate; --broadcast [3]
   gov vote <id> yes|no|abstain|no_with_veto --as <site>.<account> [--broadcast]   [3]
-  account create-key <site> <name>           [3] mnemonic generated and kept on host
+  account create-key <site> <name>           [2] mnemonic generated and kept on host
   account create-player <site> <name> [--guild-id ID] [--username U]   [3] guild signup
   onchain <site> guild-endpoint <url> | agreement-open <provider> <duration> <capacity> |
           allocation-create <source> <power> | allocation-connect <allocation> <substation>
                                              [0] simulate; --broadcast [3]
 
-Global flags: --dry-run  --approve <token>  --yes-public  --no-notify
-Exit codes: 0 ok, 1 error/WARN, 2 usage/CRIT, 3 UNKNOWN, 10 approval required
+Global flags: --dry-run  --approve <token> (transactions)  --no-notify
+Exit codes: 0 ok, 1 error/WARN, 2 usage/CRIT, 3 UNKNOWN, 10 transaction needs approval
 EOF
 }
 

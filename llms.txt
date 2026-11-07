@@ -1,8 +1,8 @@
 # structs-devops
 
-> Operations framework for Structs (Cosmos SDK game chain) infrastructure: guild stacks (Postgres, indexer, TSA signer, GRASS, webapp, Matrix), public archive nodes, validators and local Docker stacks. A hub machine manages hosts over ssh through one CLI, `bin/devops`, with enforced safety tiers. What one operator runs lives in their own inventory repo (`inventory/`, git-ignored here). Secrets are stored as pointers only.
+> Operations framework for Structs (Cosmos SDK game chain) infrastructure: guild stacks (Postgres, indexer, TSA signer, GRASS, webapp, Matrix), public archive nodes, validators and local Docker stacks. A hub machine manages hosts over ssh, with a helper CLI (`bin/devops`) for the common jobs; agents may also work directly on hosts. Only on-chain transactions need the user's approval. What one operator runs lives in their own inventory repo (`inventory/`, git-ignored here). Secrets are stored as pointers only.
 
-Start with AGENTS.md (session protocol, intent-to-skill router, tiers, invariants), then the operator's inventory/AGENTS.md (sites and current state; `devops context` prints it).
+Start with AGENTS.md (session protocol, intent-to-skill router, transaction approvals, known pitfalls), then the operator's inventory/AGENTS.md (sites and current state; `devops context` prints it).
 
 ## Core
 - [AGENTS.md](AGENTS.md): always-loaded instructions

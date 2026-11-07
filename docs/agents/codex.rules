@@ -1,14 +1,8 @@
 # structs-devops command rules for Codex (copy to ~/.codex/rules/structs-devops.rules).
-# Mirrors the secret and service-change classes of tools/agents/policy.tsv.
-# bin/devops enforces tiers by itself; these only add prompts for raw commands.
+# Mirrors tools/agents/policy.tsv: commands that would print secret material are
+# refused, and raw transaction broadcasts prompt. Everything else follows your
+# Codex settings; `devops tx` asks for its own approval.
 
 prefix_rule(pattern = ["printenv"], decision = "forbidden")
-prefix_rule(pattern = ["env"], decision = "forbidden")
 prefix_rule(pattern = ["structsd", "keys", "export"], decision = "forbidden")
-prefix_rule(pattern = ["structsd", "keys", "add"], decision = "prompt")
 prefix_rule(pattern = ["structsd", "tx"], decision = "prompt")
-prefix_rule(pattern = ["docker", "compose", ["up", "down", "restart", "stop", "rm", "pull", "build"]], decision = "prompt")
-prefix_rule(pattern = ["docker", ["restart", "stop", "kill", "rm", "run"]], decision = "prompt")
-prefix_rule(pattern = ["docker", "volume", ["rm", "prune"]], decision = "forbidden")
-prefix_rule(pattern = ["systemctl", ["restart", "stop", "start", "reload"]], decision = "prompt")
-prefix_rule(pattern = ["ssh"], decision = "prompt")

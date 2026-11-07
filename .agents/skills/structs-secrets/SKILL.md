@@ -41,8 +41,8 @@ guard and by `devops ssh`; the audit answers the same questions safely.
 3. Missing or empty critical/high secrets are CRIT: find out what changed
    (a pull, a recreate, a restore) before restoring anything.
 4. Rotation: follow the table in [docs/secrets.md](../../../docs/secrets.md#rotation).
-   Rotations that touch services are tier 2 and need a procedure or an
-   Approval Block. Update the pointer and `rotation:` notes afterwards.
+   A rotation restarts whatever uses the secret; a procedure helps when it
+   touches several services. Update the pointer and `rotation:` notes afterwards.
 5. Policy gaps: `backup: none` on a critical secret is a finding. Tell the
    user; record where the offline copy is once they have made one (the
    location, never the value).
@@ -67,7 +67,7 @@ devops webapp <guild> env-restore MATRIX_SIGNIN_CLIENT_ID OIDC_ENCRYPTION_KEY
 | Finding | Meaning / fix |
 |---|---|
 | `EMPTY OIDC_ENCRYPTION_KEY` after a webapp pull | tracked `.env` blanked it: `env-restore`, then `oidc-from-tel` |
-| `mode 644` on a key file | `chmod 600` on the host (tier 1 by hand: `devops ssh <site> -- chmod 600 <path>`) |
+| `mode 644` on a key file | `chmod 600` on the host (`devops ssh <site> -- chmod 600 <path>`, or plain ssh) |
 | `missing "structs_app"` in userlist | structs.app 503 with bouncer auth failures; follow the runbook |
 | scan hit in a commit | stop, rotate the value, remove it from history, add to `known_issues` |
 

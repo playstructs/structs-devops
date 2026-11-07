@@ -19,7 +19,7 @@ Fill in what you know; mark guesses in `unverified:`. Every secret is a
 pointer (`docs/secrets.md`); decide now where the guild mnemonic's off-host
 backup will live.
 
-## 1. Host prep (manual, tier 2)
+## 1. Host prep
 
 Ubuntu 24.04, Docker Engine + compose plugin, Caddy, `git curl jq ufw`.
 Firewall: 22, 80, 443, 1443 (GRASS wss), 26656 only if this host runs structsd.
@@ -41,7 +41,7 @@ never come through the hub): chain id `structstestnet-111`, RPC/LCD seeds on
 Web stack points sync-state and the webapp at the **public node**; a local
 structsd (if any) is only for validator block production.
 
-## 3. Guild key (tier 3)
+## 3. Guild key
 
 ```bash
 devops account create-key my-guild guild_admin
@@ -51,7 +51,7 @@ The mnemonic is generated on the host into a `600` file; the hub sees the
 address and a pointer. Add the printed snippet to `site.yaml` under
 `secrets:` and `onchain.accounts:`. Fund the address.
 
-## 4. Bring up the stack (tier 2)
+## 4. Bring up the stack
 
 Start Postgres first, let auto-migrate finish, then the rest. Use `--no-deps`
 for later Postgres recreates. Check:
@@ -74,11 +74,11 @@ devops patches my-guild check
 devops patches my-guild apply --restart
 ```
 
-## 6. On-chain guild (tier 3, simulate first)
+## 6. On-chain guild (transactions: simulate, then the user approves)
 
 The guild needs a reactor and an entry substation (power for new members);
 the messages and their arguments are in `.references/structs-ai/reference/action-quick-reference.md`.
-Each transaction simulates first, then needs its own approval:
+Each transaction simulates first, then needs the user's approval to broadcast:
 
 ```bash
 # guild-create [reactor id] [endpoint] [substation id]: costs two Alpha

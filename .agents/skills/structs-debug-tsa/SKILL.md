@@ -43,9 +43,8 @@ result in `signer.tx_submission`. The TSA connects directly to
 1. Save them: `devops debug pg <site> sql "SELECT id, command, object_id, created_at FROM signer.tx WHERE status = 'pending' AND command = '<command>' AND created_at < now() - interval '24 hours' ORDER BY id"`
    (output is saved under `inventory/reports/runs/<date>/debug/`). Attach that file
    to the journal entry.
-2. Show the user the count and the statement, get explicit approval, then:
+2. Fail them, and tell the user how many and why:
    `devops ssh <site> -- "docker exec -i -u postgres <structs-pg container> psql -d structs -c \"UPDATE signer.tx SET status = 'error', output = 'expired by operator <date>: never eligible', updated_at = now() WHERE status = 'pending' AND id IN (<ids>) AND NOT EXISTS (SELECT 1 FROM signer.tx_submission s WHERE s.tx_id = signer.tx.id)\""`
-   The gate classifies it tier 2 and asks for the approval token.
 3. Verify with `signer-queue` and `activity` (the claim backend should go
    idle within seconds).
 
@@ -88,7 +87,7 @@ webapp lands on chain.
 |---|---|
 | `signed request identity is immutable` | the row has a submission; it is past the point where an operator may fail it |
 | `aborted unsigned request is immutable` | the row was already aborted by the TSA |
-| `cannot execute UPDATE in a read-only transaction` | you used `devops debug pg` for a write; writes go through the gated `devops ssh` |
+| `cannot execute UPDATE in a read-only transaction` | you used `devops debug pg` for a write; write with `psql` on the host (`devops ssh <site> -- "docker exec …"` or plain ssh) |
 
 ## See also
 

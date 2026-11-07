@@ -41,8 +41,8 @@ flowchart LR
   F -->|"upgrade-watch: post-upgrade checks"| D["done: bump inventory binary"]
 ```
 
-1. **Voting.** `gov-watch` announces the proposal and reminds until every voter in `network.yaml gov.voters` has voted. A human runs `devops gov show <id>` and `devops gov vote <id> <option> --as <site>.<account>` (simulates, then tier 3).
-2. **Preparing.** Once the plan is on chain, `upgrade-watch` posts milestones at 48, 24 and 6 hours with the `upgrade-plan` check, which lists nodes missing `upgrades/<name>`. Staging is a human step per node (`runbooks/chain-upgrade.md`: pull the new image, verify the digest and `upgrades.conf.sh`, recreate structsd), each a tier-2 action.
+1. **Voting.** `gov-watch` announces the proposal and reminds until every voter in `network.yaml gov.voters` has voted. A human runs `devops gov show <id>` and `devops gov vote <id> <option> --as <site>.<account>` (simulates, then asks the user to approve the broadcast).
+2. **Preparing.** Once the plan is on chain, `upgrade-watch` posts milestones at 48, 24 and 6 hours with the `upgrade-plan` check, which lists nodes missing `upgrades/<name>`. Staging is a human step per node (`runbooks/chain-upgrade.md`: pull the new image, verify the digest and `upgrades.conf.sh`, recreate structsd).
 3. **Window.** At 2 hours and 30 minutes it asks for a monitor per node site: `devops upgrade monitor install <site>` (tier 1, a transient systemd unit that logs `===UPGRADE-FIRED===`, `===POSSIBLE-HALT===`, `===RECOVERED===`).
 4. **After.** When the plan is gone and `applied_plan` reports a height, it runs block-progress, height-agreement, node-health, app-toml, containers, sync-lag and tsa-queue across all sites and reminds you to update `binary.*` (in `networks/<preset>.yaml`, or as an override in your `network.yaml`) and `images.structsd`, then `devops inventory render`.
 
@@ -54,14 +54,17 @@ flowchart LR
 `MATRIX_ROOM_ID`, `MATRIX_ACCESS_TOKEN`, `NOTIFY_WEBHOOK_URL`). Checks notify
 on status changes only, with a CRIT reminder every `DEVOPS_CRIT_REMIND_HOURS`.
 
-## What is deliberately not automated
+## What the scheduled jobs leave alone
 
-| Action | Why it waits for a person |
+Scheduled jobs run unattended, so they only observe, notify and prepare.
+Changes happen in a session, by a person or an agent working with one.
+
+| Action | Why the cron does not do it |
 |---|---|
-| Governance votes | A vote is a signed, public statement by the guild. Crons only remind. |
-| Any broadcast (`devops tx --broadcast`) | Irreversible; always simulated first and gated at tier 3. |
-| Restarts, recreates, deploys | Service-affecting; tier 2 with an approval token, `--yes-public` on the public node. |
-| Pipeline pushes, release tags | A push starts GitHub builds (Pages, desktop releases); a tag ships to players. `devops pipeline publish` is tier 2, tier 3 with a tag. |
+| Governance votes | A vote is a signed, public statement by the guild and needs the user's yes. Crons only remind. |
+| Any broadcast (`devops tx --broadcast`) | A transaction always needs the user's approval; it is simulated first. |
+| Restarts, recreates, deploys | Nobody is watching a cron run to verify the result or roll back. |
+| Pipeline pushes, release tags | A push starts GitHub builds (Pages, desktop releases); a tag ships to players. `pipeline-watch` prepares; a session publishes. |
 | certbot renewals by hand | On the public node, the renewal pre_hook stops Caddy; certbot's own timer handles renewals. |
 | Migration re-pins | Migrations track `structs-pg` `main` on the guild sites by design; never pin to a commit. |
-| Patch re-application | Drift is reported daily; `devops patches <site> apply` is tier 1 but still a human decision because drift can mean upstream changed the file on purpose. |
+| Patch re-application | Drift can mean upstream changed the file on purpose; someone should look before re-applying. |

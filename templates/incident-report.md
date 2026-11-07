@@ -13,7 +13,7 @@ Two or three sentences: what broke, who noticed, what fixed it.
 |---|---|
 | hh:mm | First signal (check output, alert, report) |
 | hh:mm | Diagnosis step and what it showed |
-| hh:mm | Fix applied (exact command, approval token if tier 2+) |
+| hh:mm | Fix applied (exact command) |
 | hh:mm | Verified healthy (which checks) |
 
 ## Root cause

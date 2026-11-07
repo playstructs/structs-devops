@@ -1,6 +1,6 @@
 ---
 name: structs-change
-description: Makes a controlled change to Structs infrastructure (plan, baseline, dry run, approval, execute, verify, record) using devops procedures, patches, restarts or one-off gated commands. Use when anything on a host must change - config, patches, restarts, image or branch updates, env settings, Caddy, Postgres, the TSA, or the node.
+description: Makes a change to Structs infrastructure and keeps the record straight (plan, baseline, do it, verify, record), using devops procedures, patches and restarts where they fit or direct commands on the host where they do not. Use when anything on a host must change - config, patches, restarts, image or branch updates, env settings, Caddy, Postgres, the TSA, or the node.
 disable-model-invocation: true
 ---
 
@@ -8,25 +8,27 @@ disable-model-invocation: true
 
 ## Procedure
 
-1. **Plan.** Write down: site, host, exactly what changes, why, expected
-   effect, rollback, how to verify. Find the existing tool:
+1. **Plan.** Know the site, host, what changes, why, how you will tell it
+   worked and how you would undo it. Helpers that may already do it:
    `devops deploy <site> list`, `devops patches <site> list`,
-   `devops restart`, `devops node`, `devops webapp`. Prefer these over raw
-   commands; if nothing fits, add a procedure to `site.yaml` (`structs-deploy`).
+   `devops restart`, `devops node`, `devops webapp`. Use them when they fit;
+   otherwise work on the host directly (`ssh`, `docker compose`, editing
+   files). A change you will repeat is worth a procedure in `site.yaml`
+   (`structs-deploy`).
 2. **Baseline.** `devops health <site>`; note anything already red.
-3. **Dry run.** Add `--dry-run` and show the user the plan.
-4. **Approve.** Run it. On exit 10 show the Approval Block verbatim and wait
-   for an explicit yes; then re-run with `--approve <token>` (and
-   `--yes-public` on the public node). Never approve on the user's behalf.
-5. **Execute** and watch the output. If a step fails, stop and investigate;
-   resume with `--from-step N` only after understanding why it failed.
-6. **Verify** with the checks the procedure or skill lists, then
+3. **Do it.** `--dry-run` shows what a helper would run. Keep a copy of any
+   file you edit by hand. If something fails, find out why before retrying;
+   procedures resume with `--from-step N`.
+4. **Verify** with the checks the procedure or skill lists, then
    `devops health <site>` against the baseline.
-7. **Record.** Update `site.yaml` (digests, commits, settings), add a dated
+5. **Record.** Update `site.yaml` (digests, commits, settings), add a dated
    line to the site `CHANGELOG.md`, `devops inventory render`, and
-   `structs-handoff`.
+   `structs-handoff`. Tell the user what you changed.
 
-## Invariants to re-check before step 4
+If the change includes an on-chain transaction, that one step needs the
+user's approval (`structs-transactions`); everything else does not.
+
+## Pitfalls worth a glance
 
 - Restart, not recreate, unless the change needs a recreate.
 - structsd recreate on the public node: app.toml must be re-applied.

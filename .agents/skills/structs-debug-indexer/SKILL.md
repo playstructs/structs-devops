@@ -50,7 +50,7 @@ NATS -> Caddy `:1443` -> browser. Details in
    reconciles cleanly. Compare one player with the chain:
    `curl -s https://public.testnet.structs.network/cosmos/bank/v1beta1/balances/<address>`
    and with the other guild (`devops debug pg <other-site> sql "SELECT … FROM structs.api_inventory WHERE owner_id = '<player>'"`).
-3. Corrections are tier 2 writes with a backup of the rows and approval.
+3. Corrections are writes: save the rows you change first.
    **Never fix a ledger by replaying blocks into a live database** (seen
    2026-09-28: a replay double-counted infusions and left negative balances).
 

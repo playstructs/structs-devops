@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # devops account list [site]                              [0] inventory accounts with addresses and balances
-# devops account create-key <site> <name> [--host H]      [3] mnemonic generated and kept on the host
+# devops account create-key <site> <name> [--host H]      [2] mnemonic generated and kept on the host
 # devops account create-player <site> <name> [--guild-id ID] [--username U] [--pfp URL]   [3]
 #     signs up a new player through the guild API (structs-ai create-player.mjs)
 # Neither command prints a mnemonic. Each prints the address and the secret
@@ -49,7 +49,7 @@ case "$sub" in
       GATE_ROLLBACK="Delete the file on the host (the key has no on-chain footprint until it is used)."
       GATE_VERIFY="The address is printed; add the pointer to sites/$site/site.yaml"
       [ -n "${DEVOPS_DRY_RUN:-}" ] && { echo "dry-run: create key $name on $site:$host in $keydir"; exit 0; }
-      gate 3 "Create key $name on $site" "create-key $name on $host ($keydir)"
+      gate 2 "Create key $name on $site" "create-key $name on $host ($keydir)"
       pre="export KEY_NAME=$(printf '%q' "$name") KEY_DIR=$(printf '%q' "$keydir") TX_IMAGE=$(printf '%q' "$image") HOST_ID=$(printf '%q' "$host")"
       host_bundle "$site" "$host" "$pre" "$DEVOPS_ROOT/tools/host/create-key.sh"
     else

@@ -1,6 +1,6 @@
 # A merge to structs-webapp main, carried into this guild's own branch and
-# deployed. Format: docs/pipelines.md in the framework. Every publish waits for
-# an approval token.
+# deployed. Format: docs/pipelines.md in the framework. Nothing is pushed until
+# devops pipeline publish.
 schema: structs-devops/pipeline/v1
 id: webapp-guild-branch
 description: structs-webapp main -> merge into guild-custom -> deploy to the guilds that track it.

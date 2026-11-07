@@ -72,7 +72,7 @@ Read the budget with `devops debug pg <site> connections`, the pool with `devops
 - `devops debug pg` connects over the container socket as `postgres` with `default_transaction_read_only=on`, `statement_timeout` (30 s default), `lock_timeout 2 s`, and `application_name=structs-devops-debug`. It refuses statements containing write or admin keywords.
 - `explain` runs `EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` only for plain SELECT/WITH. `ANALYZE` executes the statement, so never wrap a function that writes.
 - Bouncer admin commands go through the bouncer's `pgbouncer` virtual database, `SHOW` only.
-- Before any write (failing stuck `signer.tx` rows, resolving `handler_error_log` rows), save the affected rows to `inventory/reports/` and get explicit approval; it is tier 2.
+- Before any write (failing stuck `signer.tx` rows, resolving `handler_error_log` rows), save the affected rows to `inventory/reports/` first.
 
 ## Known performance signatures (2026-11-03 review)
 

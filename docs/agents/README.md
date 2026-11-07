@@ -1,8 +1,11 @@
 # Using the workspace with an LLM
 
 The instructions are written once, harness-neutral, and loaded natively by
-each tool. Safety does not depend on the harness: `bin/devops` enforces the
-tiers and Approval Blocks itself. The hooks below are a second layer.
+each tool. Agents may work however suits the task: `devops` helpers, ssh,
+docker, git, SQL. Two things are enforced. On-chain transactions need the
+user's approval (`bin/devops` prints an Approval Block for its own broadcasts,
+and the hooks below ask before raw ones), and commands that would print
+secret values are refused.
 
 | | Cursor | Claude Code | Codex | No harness (chat) |
 |---|---|---|---|---|
@@ -10,7 +13,7 @@ tiers and Approval Blocks itself. The hooks below are a second layer.
 | Skills | `.agents/skills/` | `.claude/skills` → symlink to `.agents/skills` | `.agents/skills/` | include with `--skill` |
 | Workflow skills | `/structs-start` | `/structs-start` | `$structs-start` | ask for the steps |
 | Command guard | `.cursor/hooks.json` (`beforeShellExecution`) | `.claude/settings.json` (`PreToolUse` + deny rules) | approvals `on-request`; optional rules ([codex.md](codex.md)) | the human runs commands |
-| Tier gate | `bin/devops` | `bin/devops` | `bin/devops` | `bin/devops` |
+| Transaction approval | `bin/devops` + hook | `bin/devops` + hook | `bin/devops` (+ rules) | `bin/devops` |
 
 Open `structs-devops/` itself as the project (not a parent folder) so the
 root `AGENTS.md`, skills and hooks are picked up.
@@ -37,11 +40,12 @@ the generated current-state block.
 - **deny**: anything that would print secret material: reading `.env`,
   `userlist.txt`, `priv_validator_key.json`, `node_key.json`, keyrings,
   `printenv`, `docker inspect … .Config.Env`, `keys add --output json`.
-- **ask**: re-running a devops command with `--approve` (so the human confirms
-  the Approval Block in the harness UI too), tier 3 commands, and tier 2
-  commands that touch hosts or services (raw `ssh … docker compose restart`,
-  `systemctl`, `psql` writes).
-- everything else: the harness's normal permission flow.
+- **ask**: on-chain transactions sent outside `devops` (`structsd tx …`,
+  the REST `/cosmos/tx/v1beta1/txs` and RPC `broadcast_tx_*` endpoints), and
+  re-running a devops command with `--approve` (so the human confirms that
+  transaction in the harness UI too).
+- everything else, including restarts, recreates, deploys, pushes and
+  database writes: allowed (the harness's own settings still apply).
 
 Try it: `tools/agents/guard.sh check -- 'ssh root@guild.example.org cat /root/docker-structs-guild/.env'`.
 

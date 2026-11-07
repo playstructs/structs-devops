@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Harness shell-command guard (defense in depth; bin/devops enforces tiers itself).
+# Harness shell-command guard. Agents may use any command; this only makes sure
+# the user approves on-chain transactions and that secret values stay put.
 #
 #   guard.sh claude          Claude Code PreToolUse hook (Bash): JSON on stdin
 #   guard.sh cursor          Cursor beforeShellExecution hook: JSON on stdin
@@ -7,8 +8,8 @@
 #
 # Decisions, from tools/agents/policy.tsv via classify.py:
 #   deny  commands that would print secret material (class S)
-#   ask   re-running devops with --approve (the user must have said yes),
-#         tier 3, and tier 2 commands that reach hosts or services
+#   ask   an on-chain transaction (tier 3), and re-running devops with
+#         --approve (the user must have approved that transaction)
 #   none  everything else (the harness's normal permission flow applies)
 set -uo pipefail
 
@@ -34,17 +35,13 @@ decision="none" reason=""
 if [ -n "$cmd" ]; then
   cls="$(python3 "$HERE/classify.py" -- "$cmd" 2>/dev/null)"
   tier="${cls%% *}"; why="${cls#* }"
-  remote='(^|[^[:alnum:]_-])(ssh|scp|rsync|docker|systemctl|structsd|psql|pg_dump|certbot|caddy|pgbouncer|kubectl|cosmovisor)([^[:alnum:]_-]|$)'
   case "$tier" in
-    S) decision=deny; reason="refused by structs-devops policy: $why. Secret values never leave the host; use: devops secrets audit <site>" ;;
-    3) decision=ask; reason="tier 3 (irreversible): $why. Prefer the devops command, which simulates and shows an Approval Block." ;;
-    2) if printf '%s' "$cmd" | grep -Eq "$remote"; then
-         decision=ask; reason="tier 2 (service-affecting): $why. Prefer devops (restart, deploy, patches) so it is gated and audited."
-       fi ;;
+    S) decision=deny; reason="refused: $why. Secret values stay on their host; check presence with: devops secrets audit <site>" ;;
+    3) decision=ask; reason="on-chain transaction: $why. Transactions need the user's approval; devops tx simulates first and shows what will be signed." ;;
   esac
   if [ "$decision" != deny ] && printf '%s' "$cmd" | grep -Eq '(^|[[:space:]/])(devops|bin/devops)[[:space:]].*--approve([[:space:]=]|$)'; then
     decision=ask
-    reason="re-runs a gated devops action with an approval token. Run it only if the user explicitly approved the Approval Block in this conversation."
+    reason="sends an on-chain transaction with an approval token. Run it only if the user approved this transaction in this conversation."
   fi
 fi
 

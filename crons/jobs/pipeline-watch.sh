@@ -2,8 +2,8 @@
 # Hourly: look at each pipeline's trigger ref (git ls-remote) and notify when
 # it moved. Pipelines with `on_change: prepare` also prepare their stages in
 # hub-local clones (commits and builds stay on the hub). Nothing is pushed,
-# tagged or deployed: publishing always needs `devops pipeline publish` and
-# an approval token.
+# tagged or deployed: publishing happens in a session with
+# `devops pipeline publish`.
 . "$DEVOPS_ROOT/crons/jobs/_job.sh"
 job_begin pipeline-watch
 

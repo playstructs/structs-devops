@@ -20,15 +20,18 @@ disable-model-invocation: true
    Intents: observe, diagnose, change, deploy, migrate, upgrade, transact,
    vote, catalogue, secrets.
 3. **Route** with the intent table in `AGENTS.md` and open that skill.
-4. **Observe first.** Before proposing any change, run the tier-0 commands
-   the skill lists and show the user what you found.
+4. **Get going.** A quick look with the read-only commands the skill lists
+   usually shows the cause fast; then do the work, with `devops` helpers or
+   directly on the host, whichever is quicker.
 5. Tell the user, in two or three sentences: the state of the sites that
-   matter for this request, anything already red, and what you propose next.
+   matter for this request, anything already red, and what you did or are
+   doing next.
 
-## Rules for the whole session
+## For the whole session
 
-- Every change goes through `bin/devops`. On exit 10, show the Approval Block
-  and wait for an explicit yes before re-running with `--approve <token>`.
-- Never read or print secret values; use `devops secrets audit`.
+- On-chain transactions (sends, votes, guild and player actions) need the
+  user's explicit yes; `devops tx` and friends simulate first and print an
+  Approval Block. Nothing else needs permission.
+- Keep secret values out of chat and files; `devops secrets audit` checks them.
 - Record what changed (inventory, CHANGELOG, incident report) and finish
   with `structs-handoff`.

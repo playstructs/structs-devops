@@ -2,7 +2,8 @@
 
 A public node (`kind: public-node`) serves RPC, LCD and gRPC for every guild's
 indexer, webapp and players. Treat changes to it like changes to all sites at
-once: every tier-2+ action needs `--yes-public`, and you announce blips first.
+once: announce blips to guild operators first, and check the dependents
+after every change.
 
 Reference: `docs/reference/public-node-config.md`, `docs/reference/pruning-and-archive.md`.
 
@@ -22,13 +23,13 @@ Reference: `docs/reference/public-node-config.md`, `docs/reference/pruning-and-a
 2. Clone `docker-structs-guild` to `/home/docker/docker-structs-guild`; `.env` with the chain id and seeds.
 3. Restore chain data from a snapshot or another archive node (copy the `structsd-chaindata` volume with structsd stopped on both sides); a state-synced node is not an archive. Never run the old and new node with the same `node_key.json`.
 4. `docker compose up -d structsd`, then catch up: `devops node <public-node> status`.
-5. Apply app.toml overrides and restart (tier 1 + tier 2):
+5. Apply app.toml overrides and restart:
 
    ```bash
    devops host sync <public-node>
    devops node <public-node> app-toml check
    devops node <public-node> app-toml apply
-   devops restart <public-node> structsd --yes-public
+   devops restart <public-node> structsd
    ```
 
 6. certbot standalone + Caddy (`../tls-cert-renewal.md`). Do not run `certbot renew --dry-run` on a live public node: the pre_hook stops Caddy.

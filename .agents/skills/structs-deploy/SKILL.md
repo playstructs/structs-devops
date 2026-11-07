@@ -7,9 +7,11 @@ description: Deploys and changes Structs services through site procedures (webap
 
 A deployment is a **procedure**: a named list of steps in a site's
 `site.yaml`, run by `devops deploy`. Steps are `tool` (a devops command),
-`ssh` (on a stack's host), `local`, `backup`, `check`, and `confirm`. The
-runner computes the highest tier, asks for one approval, writes a report to
-`reports/runs/<date>/`, and stops on the first failed step or CRIT check.
+`ssh` (on a stack's host), `local`, `backup`, `check`, and `confirm` (a
+reminder; a person at a terminal is asked). The runner runs the steps in
+order, writes a report to `inventory/reports/runs/<date>/`, and stops on the
+first failed step or CRIT check. Procedures are a convenience for repeatable
+work: a one-off is fine to do by hand, as long as you record it.
 
 ## When to use
 
@@ -38,11 +40,10 @@ app.toml (`structsd-recreate` re-applies it). Recreate structs-pg only with
 2. Baseline: `devops health <site>`. Note anything already red.
 3. `devops deploy <site> <procedure> --dry-run` and read the plan: every
    step with its tier, the exact command, and the stack host.
-4. Run it without `--dry-run`. For tier 2+ it exits **10** with an Approval
-   Block. Show the block to the user; when they say yes, re-run with
-   `--approve <token>` (add `--yes-public` on the public node).
+4. Run it without `--dry-run`. Only a step that sends an on-chain
+   transaction stops, with an Approval Block for the user.
 5. If a step fails, the runner prints the resume command
-   (`--from-step N`). Investigate before resuming; do not skip steps.
+   (`--from-step N`). Find out why before resuming.
 6. Verify with the checks the procedure ends with, then `devops health <site>`.
 7. Record: update `site.yaml` (image digests, source commits, env that
    matters), add a line to the site `CHANGELOG.md`, `devops inventory render`.
@@ -61,16 +62,15 @@ procedures:
 ```
 
 Each ssh/local step's tier is the higher of what you declare and what
-`tools/agents/classify.py` assigns; steps that would expose secrets are refused.
+`tools/agents/classify.py` assigns (it labels the report); steps that would print secrets are refused.
 
 ## Commands reference
 
 ```bash
 devops deploy <guild> list
 devops deploy <guild> webapp-update --dry-run
-devops deploy <guild> webapp-update                    # exit 10 + Approval Block
-devops deploy <guild> webapp-update --approve <token>
-devops deploy <guild> webapp-update --from-step 6 --approve <token>
+devops deploy <guild> webapp-update
+devops deploy <guild> webapp-update --from-step 6
 devops restart <guild> structs-webapp structs-webapp-cache
 devops ps <guild>; devops logs <guild> structs-tsa 200
 ```

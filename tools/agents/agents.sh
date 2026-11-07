@@ -138,7 +138,7 @@ case "$sub" in
       fi
     else warn "claude: .claude/settings.json missing or invalid"; fi
     if [ -f "$HOME/.codex/rules/structs-devops.rules" ]; then cx="rules installed"; else cx="no rules file (optional, docs/agents/codex.md)"; fi
-    ok "codex: AGENTS.md + .agents/skills; protection is the devops tier gate; $cx"
+    ok "codex: AGENTS.md + .agents/skills; devops asks before transactions; $cx"
     if selected "$det" cursor && [ -L "$DEVOPS_ROOT/.claude/skills" ]; then
       note "cursor and claude adapters both active: Cursor may list each skill twice (.agents/skills and .claude/skills)"
     fi

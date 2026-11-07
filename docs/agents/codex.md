@@ -6,13 +6,14 @@ skills from `.agents/skills/`. Workflow skills are invoked as `$structs-start`,
 `$structs-daily-check`, and so on.
 
 Codex has no shell-command hook equivalent to the Cursor and Claude Code
-guards, so the **tier gate in `bin/devops` is the main protection**: tier 2
-and 3 actions stop with exit 10 and an Approval Block whatever runs them.
+guards. Transaction approval comes from `bin/devops` (its broadcasts stop
+with exit 10 and an Approval Block whatever runs them) and, optionally, the
+rules file below for raw `structsd tx`.
 
-## Recommended settings
+## Settings
 
-Run Codex with approvals on request and the workspace-write sandbox, so any
-command that reaches the network or leaves the workspace asks first:
+The agent needs network access for ssh and chain queries. A setup that lets
+it work without asking for each command:
 
 ```toml
 # ~/.codex/config.toml (or a profile you use for this workspace)
@@ -20,23 +21,23 @@ approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
-network_access = false
+network_access = true
 ```
 
-ssh to hosts and chain queries need network access: approve those commands
-one at a time when Codex asks, rather than turning network access on for the
-whole session.
+If ssh needs files outside the workspace (keys, known_hosts, control
+sockets) and the sandbox blocks it, use a profile with
+`sandbox_mode = "danger-full-access"` for this workspace.
 
 ## Optional command rules
 
 If your Codex version supports execution-policy rules (`~/.codex/rules/`),
 copy [codex.rules](codex.rules) there. It forbids the secret-printing patterns
-and prompts for raw service changes, mirroring `tools/agents/policy.tsv`.
+and prompts before a raw `structsd tx`, mirroring `tools/agents/policy.tsv`.
 Check it loads with your Codex version's rules check command before relying
 on it.
 
 ## Session habits
 
 - Start with `$structs-start`; end with `$structs-handoff`.
-- When a devops command exits 10, Codex must show you the Approval Block and
-  wait. Re-running with `--approve <token>` is your decision.
+- When a devops command exits 10 it is a transaction: Codex shows you the
+  Approval Block and waits. Re-running with `--approve <token>` is your decision.

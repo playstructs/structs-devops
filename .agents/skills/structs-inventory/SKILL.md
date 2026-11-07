@@ -43,7 +43,7 @@ inferred values go under `unverified:` until checked.
 3. Bump `last_verified` when you confirmed the whole file; otherwise list
    what you did not confirm under `unverified:`.
 4. Add a dated line at the top of the site `CHANGELOG.md`: what changed, why,
-   who approved (if tier 2+).
+   who asked for it.
 5. `devops inventory validate` (must have 0 errors), then
    `devops inventory render` to refresh the generated blocks in the
    inventory's `AGENTS.md` and the site README.

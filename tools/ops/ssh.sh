@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # devops ssh <site|host|site:host>             interactive shell (humans only)
-# devops ssh <site|host|site:host> -- <cmd>    one command, tier from policy.tsv
+# devops ssh <site|host|site:host> -- <cmd>    one command, logged with its tier from policy.tsv;
+#                                              only an on-chain transaction asks for approval
 set -euo pipefail
 . "$DEVOPS_ROOT/lib/common.sh"
 . "$DEVOPS_ROOT/lib/inventory.sh"
@@ -27,8 +28,8 @@ case "$tier" in
   0|1) ;;
   *)
     gate_site "$T_SITE"; GATE_HOST="$T_HOST"
-    GATE_EFFECT="Raw command classified tier $tier: $reason"
-    GATE_ROLLBACK="Prefer a devops subcommand with a defined rollback if one exists (devops help)."
+    GATE_EFFECT="Command classified tier $tier: $reason"
+    GATE_ROLLBACK="None on-chain. devops tx simulates first and logs the result."
     gate "$tier" "Raw command on $T_SITE:$T_HOST" "$cmd"
     audit "SSH tier=$tier site=$T_SITE host=$T_HOST cmd=$(printf '%s' "$cmd" | tr '\n\t' '  ')"
     ;;

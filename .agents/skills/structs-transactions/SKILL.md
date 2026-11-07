@@ -1,6 +1,6 @@
 ---
 name: structs-transactions
-description: Sends Structs chain transactions as an inventory account with on-host signing (simulate first, then a gated broadcast), runs guild on-chain actions (guild endpoint, agreements, allocations), and creates keys and players with the mnemonic kept on the host. Use when a structsd tx is needed, a guild endpoint or allocation must change, a new account, key or player is requested, or a transaction failed or is stuck.
+description: Sends Structs chain transactions as an inventory account with on-host signing (simulate first, then broadcast once the user approves), runs guild on-chain actions (guild endpoint, agreements, allocations), and creates keys and players with the mnemonic kept on the host. Use when a structsd tx is needed, a guild endpoint or allocation must change, a new account, key or player is requested, or a transaction failed or is stuck.
 ---
 
 # Structs transactions
@@ -9,7 +9,9 @@ All signing happens on the host that holds the key. `devops tx` loads the
 mnemonic there, hands it to an ephemeral `structs/structsd` container,
 checks the recovered address matches the inventory, simulates or signs,
 and returns only `SIMULATE_OK ...` or `RESULT txhash=... code=... height=...`.
-Simulation is tier 0; broadcasting is tier 3 (irreversible).
+Simulation runs freely. Broadcasting is the one action in this framework that
+needs the user's explicit yes, however it is sent (`devops tx`, `structsd tx`
+on a host, the REST or RPC broadcast endpoints).
 
 ## When to use
 
@@ -24,7 +26,7 @@ Simulation is tier 0; broadcasting is tier 3 (irreversible).
 | Arbitrary message | `devops tx <site> <account> -- <module> <msg> [flags] [-- positionals]` |
 | Guild endpoint matches inventory | `devops onchain <site> guild-endpoint` (defaults to the inventory URL) |
 | Read on-chain state vs inventory | `devops onchain <site> show` |
-| New signing key on a host | `devops account create-key <site> <name>` (tier 3) |
+| New signing key on a host | `devops account create-key <site> <name>` (tier 2; not a transaction) |
 | New player through the guild | `devops account create-player <site> <name> [--username U]` (tier 3) |
 | Governance vote | `structs-governance` |
 

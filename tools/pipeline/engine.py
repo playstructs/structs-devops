@@ -4,7 +4,7 @@
 Called by tools/pipeline/pipeline.sh (`devops pipeline ...`); the format is in
 docs/pipelines.md; pipeline files live in $DEVOPS_PIPELINES (inventory/pipelines/). Everything here is hub-local: clones live in
 local/pipelines/repos/, run state in state/pipelines/runs/<run>/. Pushing and
-deploying happen only through `devops pipeline publish`, which gates them.
+deploying happen in `devops pipeline publish`, never during prepare.
 
   engine.py list | validate [file...] | status [pipeline] [--deployed]
   engine.py run <pipeline> [--stage S]... [--sha SHA] [--continue] [--force] [--fresh] [--no-agent]
@@ -239,10 +239,6 @@ def validate_pipeline(p, f: Path):
         pub = st.get("publish") or {}
         if pub.get("tag") not in (None, "next-patch"):
             errs.append(f"{where}: publish.tag supports next-patch only")
-        if pub.get("tier", 2) not in (2, 3):
-            errs.append(f"{where}: publish.tier must be 2 or 3")
-        if st.get("gate", "approve") != "approve":
-            errs.append(f"{where}: gate must be approve (publishing always needs an approval)")
     return errs
 
 
@@ -979,7 +975,7 @@ def print_plan(p: dict) -> None:
             print(f"      fix:    agent with skill {st['fix']['skill']} (up to {st['fix'].get('attempts', 2)} attempts)")
         if st.get("verify"):
             print(f"      verify: {'; '.join(st['verify'])}")
-        print(f"      publish (approval, tier {3 if pub.get('tag') else pub.get('tier', 2)}): push {st['branch']}"
+        print(f"      publish (tier 2): push {st['branch']}"
               + (" + next patch tag" if pub.get("tag") else "") + (f"; {pub['triggers']}" if pub.get("triggers") else ""))
 
 
@@ -1118,14 +1114,13 @@ def cmd_publish_plan(a) -> int:
                    f"re-prepare: devops pipeline run {run['pipeline']} --stage {a.stage}")
     pub = st.get("publish") or {}
     actions = [f"git -C {shlex.quote(str(d))} push {url} {S['commit']}:refs/heads/{st['branch']}"]
-    tier = int(pub.get("tier", 2))
+    tier = 2
     if pub.get("tag") == "next-patch":
         tag, after = next_patch_tag(url)
         S["tag"], S["tag_after"] = tag, after
         save_run(run)
         actions.append(f"git -C {shlex.quote(str(d))} tag -a {tag} -m 'Release {tag}' {S['commit']}")
         actions.append(f"git -C {shlex.quote(str(d))} push {url} refs/tags/{tag}")
-        tier = 3
     title = f"pipeline {run['id']}: publish {a.stage} to {st['repo']}@{st['branch']}" + (f" and tag {S['tag']}" if S.get("tag") else "")
     rewind = next((w for w in S.get("warnings") or [] if " back " in w), None)
     if rewind:
@@ -1160,7 +1155,7 @@ def cmd_publish_exec(a) -> int:
     if S.get("tag"):
         tag, _ = next_patch_tag(url)
         if tag != S["tag"]:
-            raise Fail(f"the next tag is now {tag}, not the approved {S['tag']}; re-run publish for a new approval")
+            raise Fail(f"the next tag is now {tag}, not the planned {S['tag']}; re-run publish")
     noprompt = {"GIT_TERMINAL_PROMPT": "0"}
     sh(["git", "-C", str(d), "push", url, f"{S['commit']}:refs/heads/{st['branch']}"], env=noprompt, logf=logf, timeout=300)
     say(f"pushed {S['commit'][:8]} to {st['repo']}@{st['branch']}")

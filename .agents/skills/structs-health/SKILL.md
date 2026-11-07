@@ -41,7 +41,7 @@ every dependent site; look there first when several sites go red together.
 3. Check whether it is a known issue: the site's `known_issues` in
    `inventory/sites/<site>/site.yaml` and
    [docs/debugging/symptom-index.md](../../../docs/debugging/symptom-index.md).
-4. Known issue with a known fix: follow `structs-change` (tier gates apply).
+4. Known issue with a known fix: follow `structs-change` (only transactions ask).
    Unknown or unclear: switch to `structs-investigate` / `structs-debug`.
 5. If users were affected, write an incident report from
    [templates/incident-report.md](../../../templates/incident-report.md) into

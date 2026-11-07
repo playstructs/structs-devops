@@ -1,6 +1,6 @@
 # Symptom index
 
-Find the symptom, run the first command (all read-only), and confirm the signature before applying the fix. Fixes marked [2] or [3] go through the approval gate. When you find something new, add a row here and to the site's `known_issues` in `inventory/sites/<site>/site.yaml`.
+Find the symptom, run the first command (all read-only), and confirm the signature before applying the fix. Fixes marked [1] change files (keep a copy) and [2] affect running services. When you find something new, add a row here and to the site's `known_issues` in `inventory/sites/<site>/site.yaml`.
 
 Skills: [router](../../.agents/skills/structs-debug/SKILL.md) · [postgres](../../.agents/skills/structs-debug-postgres/SKILL.md) · [http](../../.agents/skills/structs-debug-http/SKILL.md) · [chain](../../.agents/skills/structs-debug-chain/SKILL.md) · [indexer](../../.agents/skills/structs-debug-indexer/SKILL.md) · [tsa](../../.agents/skills/structs-debug-tsa/SKILL.md). Hop map: [data-flows.md](data-flows.md).
 
@@ -76,7 +76,7 @@ Before restarting anything, run `devops debug snapshot <site>`: a restart clears
 | Symptom | Likely cause | First command | Skill | Fix |
 |---|---|---|---|---|
 | RPC 200, `catching_up=false`, container healthy, but the newest block is minutes old | Consensus failure (`wrong Block.Header.LastResultsHash`, `AppHash`), or peer loss | `devops check block-progress`, `devops debug compare-nodes`, `node.txt` in the snapshot | chain | Do not restart first: snapshot, compare nodes, read the consensus error; then [cosmovisor-recovery.md](../../runbooks/cosmovisor-recovery.md) |
-| Hash mismatch at a height between nodes | That node executed a block differently | `devops debug compare-nodes <height>` | chain | Roll back or resync that node with approval [3]; report upstream |
+| Hash mismatch at a height between nodes | That node executed a block differently | `devops debug compare-nodes <height>` | chain | Roll back or resync that node (back up the data first) [2]; report upstream |
 | Node exits in a loop with `UPGRADE "v0.X.0" NEEDED` | `cosmovisor/current` symlink still on the old binary (race at the upgrade height) | `devops node <site> status` | chain | [cosmovisor-recovery.md](../../runbooks/cosmovisor-recovery.md) fix path 1 [2] |
 | Pong timeouts, peer churn, height frozen, RAM fine | Two live nodes with the same `node_key.json` (chaindata copied with config) | `devops node <site> status` (node id), compare with the other node | chain | `devops node <site> rotate-node-key` [2] |
 | Crash loop `encoding/hex: odd length hex string` | Typo in a peer id in `persistent_peers`/`seeds` | node log | chain | Fix the peer list (ids are 40 hex chars) [2] |

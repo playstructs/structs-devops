@@ -43,20 +43,24 @@ Requirements on the hub: bash (macOS 3.2 is fine), `git`, `curl`, `jq`,
 | **Checks** (`checks/`) | 23 read-only checks: host resources, block progression, height agreement, containers, endpoints, TLS expiry, Postgres, TSA queue, sync lag, PgBouncer, Apache, validator, patch drift, app.toml, certbot, archive growth, governance, upgrades, new releases, inventory freshness. `docs/health-checks.md`. |
 | **Crons** (`crons/`) | Hub schedules (launchd or crontab): hourly health, daily network, TLS, new updates, governance reminders, the chain-upgrade lifecycle, a weekly digest. Gaps while the hub sleeps are reported, not hidden. `docs/automations.md`. |
 | **Change tools** | Anchored patch engine with backups and drift checks, app.toml overrides, webapp helpers (env restore, OIDC, GA4), restarts, procedures (`devops deploy`). |
-| **Chain tools** | `devops tx` (simulate, then gated broadcast with on-host signing), `devops gov` (list, show, verify, vote), `devops onchain`, `devops account` (create keys and players on the host). |
+| **Chain tools** | `devops tx` (simulate, then broadcast after the user approves, with on-host signing), `devops gov` (list, show, verify, vote), `devops onchain`, `devops account` (create keys and players on the host). |
 | **Debugging** | `devops debug snapshot|pg|http-trace|nginx-top|compare-nodes|grass-tap|oidc-probe`, SQL packs for structs-pg, and `docs/debugging/` (data flows, symptom index). |
 | **Dev pipelines** (`inventory/pipelines/`) | When an upstream branch moves, prepare every consumer in hub-local clones (submodule bumps, sed-anchor and translation checks, merges, builds), let an agent fix what fails, then push, tag and deploy one approval at a time. `docs/pipelines.md`. |
-| **Agents** | `AGENTS.md` + `.agents/skills/` work in Cursor, Claude Code and Codex; a command guard and the tier gate keep every harness inside the same rules. |
+| **Agents** | `AGENTS.md` + `.agents/skills/` work in Cursor, Claude Code and Codex; a command guard and the transaction gate give every harness the same two rules: transactions ask first, secret values are never printed. |
 | **Publishing** | `devops publish-check` fails if a framework file names anything from your inventory (site and host ids, hostnames, IPs, addresses, branches), so fixes can go upstream without leaking your setup. |
 | **References** (`.references/`) | Read-only clones of the Structs repos for reading code and diffing upstream (`devops refs sync|status`). |
 
 ## Safety model
 
-Every command has a tier. Tier 0 (read-only) and tier 1 (reversible, with a
-backup on the host) run directly. Tier 2 (service-affecting) and tier 3
-(irreversible: broadcasts, votes, keys) stop with an Approval Block and a
-single-use token, or an interactive prompt at a terminal. The public node
-additionally needs `--yes-public`. Approvals are logged to `inventory/reports/audit.log`.
+The `devops` commands are helpers, not the only way in: people and agents can
+also work on hosts directly with ssh, docker, git or psql. One thing always
+asks first: an on-chain transaction (sends, votes, guild and player actions).
+`devops tx` and the commands built on it simulate, then stop with an Approval
+Block and a single-use token (or a prompt at a terminal), and the agent hooks
+ask before any raw broadcast. Every command carries a tier for the record
+(0 read-only, 1 changes files with a backup, 2 affects running services,
+3 transaction), and tier 1+ actions are logged to `inventory/reports/audit.log`.
+Secrets stay pointers: their values are never printed or copied to the hub.
 
 ## Your inventory
 

@@ -21,8 +21,8 @@ disable-model-invocation: true
 5. **Bisect** along the data path hop by hop (`docs/debugging/data-flows.md`)
    until you find the first hop that is wrong. Collect evidence read-only.
 6. **Explain** to the user: the evidence, the root cause (or the top two
-   hypotheses and how to tell them apart), and the proposed fix with its tier.
-7. **Fix** only through `structs-change` (approval, backup, verification).
+   hypotheses and how to tell them apart), and the fix.
+7. **Fix** it. `structs-change` has the checklist (baseline, backup, verify, record).
 8. **Write up.** User-visible impact: an incident report from
    `templates/incident-report.md`. In all cases: add the signature to
    `docs/debugging/symptom-index.md` and the site's `known_issues`, then

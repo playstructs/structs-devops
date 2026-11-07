@@ -4,8 +4,8 @@
 # devops pipeline run <pipeline> [--stage S] [--continue] [--force] [--fresh] [--no-agent] [--sha SHA]
 #                                                        [1] hub-local clones only: update, check, fix, commit, verify
 # devops pipeline show [run] [stage] [--diff|--check|--prompt|--agent|--log|--verify]   [0]
-# devops pipeline publish <run> <stage> [--site S]       [2] push the prepared commit; [3] with a release tag;
-#                                                            deploy stages run `devops deploy` (its own approval)
+# devops pipeline publish <run> <stage> [--site S]       [2] push the prepared commit (and its release tag);
+#                                                            deploy stages run `devops deploy`
 # devops pipeline watch                                  [0] trigger refs that moved (cron: pipeline-watch)
 # devops pipeline discard <run> [stage...]               [0] prepared commits will not be published
 #
@@ -47,6 +47,7 @@ Review first: devops pipeline show $run_id $stage --diff"
           printf '%s\n%s\n' "$title" "$action"; note "dry run: nothing pushed"; exit 0
         fi
         gate "$tier" "$title" "$action"
+        info "$title"
         audit "PIPELINE publish run=$run_id stage=$stage"
         engine publish-exec "$run_id" "$stage"
         ;;
@@ -54,7 +55,7 @@ Review first: devops pipeline show $run_id $stage --diff"
         site="$(printf '%s' "$plan" | jq -r .site)"
         proc="$(printf '%s' "$plan" | jq -r .procedure)"
         target="$(printf '%s' "$plan" | jq -r .target)"
-        info "deploy $site ($proc) to ${target:0:8} through devops deploy; it asks for its own approval"
+        info "deploy $site ($proc) to ${target:0:8} through devops deploy"
         rc=0
         DEVOPS_RERUN="pipeline publish $run_id $stage --site $site" "$DEVOPS_ROOT/bin/devops" deploy "$site" "$proc" || rc=$?
         [ "$rc" -eq 0 ] || exit "$rc"

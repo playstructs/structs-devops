@@ -9,9 +9,10 @@ disable-model-invocation: true
 ## Procedure
 
 1. **What changed.** Review this session's entries:
-   `grep "$(date -u +%Y-%m-%d)" reports/audit.log` (approvals, tier 1+
-   actions), `reports/tx-log/<date>.tsv` (transactions), and run reports in
-   `reports/runs/<date>/`.
+   `grep "$(date -u +%Y-%m-%d)" inventory/reports/audit.log` (tier 1+
+   actions and transaction approvals), `inventory/reports/tx-log/<date>.tsv`
+   (transactions), run reports in `inventory/reports/runs/<date>/`, and
+   anything you did by hand on a host.
 2. **Inventory.** For every change, confirm `site.yaml` and the site
    `CHANGELOG.md` say so. `devops inventory validate` and
    `devops inventory render --check` (render if stale).

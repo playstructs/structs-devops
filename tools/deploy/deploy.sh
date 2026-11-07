@@ -3,16 +3,18 @@
 # devops deploy <site> <procedure> --dry-run        [0] numbered plan with effective tiers
 # devops deploy <site> <procedure> [--from-step N]  [max step tier] run it
 #
-# One approval covers the whole procedure up to tier 2 (its steps do not
-# re-prompt). Tier-3 steps (on-chain, keys) still stop for their own approval.
+# Procedures run straight through. Only a step that sends an on-chain
+# transaction (tier 3) stops for approval; resume with --from-step.
 # A step's effective tier is max(declared, classify.py of its command).
+# The plan, every step's output and the result go to a run report.
 # Steps:
 #   tool: "<devops args>"            a devops command (it enforces its own tier)
 #   ssh: "<cmd>"  [stack: <id>]      on the stack's host, cd'd into the stack path
 #   local: "<cmd>"                   on the hub, from the workspace root
 #   backup: "<remote path>"          cp -a <path> <path>.bak.devops-<stamp> on the host (tier 1)
 #   check: <check-id>                stop on CRIT/UNKNOWN, continue on WARN
-#   confirm: "<question>"            asked on a terminal; for agents, part of the approval
+#   confirm: "<reminder>"            asked when a person runs it at a terminal; otherwise
+#                                    printed as a reminder and the procedure continues
 set -uo pipefail
 . "$DEVOPS_ROOT/lib/common.sh"
 . "$DEVOPS_ROOT/lib/inventory.sh"
@@ -86,7 +88,7 @@ eff_tier() {
   echo "$d"
 }
 
-# Build the plan (also the approval text, so it is stable between runs).
+# Build the plan.
 plan="procedure $proc on $site: $(printf '%s' "$P" | jq -r '.description // ""')"
 max=0 confirms="" i="$from"
 while [ "$i" -le "$n" ]; do
@@ -107,27 +109,11 @@ echo "$plan"
 
 gate_site "$site"
 GATE_HOST="$(inv_primary_host "$site")"
-GATE_EFFECT="runs $((n - from + 1)) step(s), highest tier $max"
-GATE_ROLLBACK="per step; backups land next to each file as *.bak.devops-<stamp>; see the runbook for $proc"
-GATE_VERIFY="the procedure's check steps; then devops health $site"
-GATE_EXTRA="${confirms:+By approving, the user also confirms:$confirms}"
-ptoken=""
-if [ "$max" -ge 2 ]; then
-  gate "$max" "deploy $site $proc (steps $from-$n)" "$plan"
-  ptoken="$(openssl rand -hex 6 2>/dev/null || printf '%04x%04x%04x' "$RANDOM" "$RANDOM" "$RANDOM")"
-  ptier="$max"; [ "$ptier" -gt 2 ] && ptier=2
-  printf '%s %s %s\n' "$(now_epoch)" "$ptier" "$site" > "$(mkstate approvals)/procedure-$ptoken"
-  export DEVOPS_PROCEDURE_TOKEN="$ptoken"
-fi
-unset DEVOPS_APPROVE
-approved_by_token=""; [ -n "$ptoken" ] && ! has_tty && approved_by_token=1
-is_agent && [ -n "$ptoken" ] && approved_by_token=1
+ask_confirms=""; ! is_agent && has_tty && ask_confirms=1
 
 report="$(run_dir)/deploy-$site-$proc-$(date +%H%M).md"
 { echo "# deploy $site $proc $(iso_now)"; echo; echo '```'; echo "$plan"; echo '```'; echo; } > "$report"
 audit "DEPLOY start site=$site procedure=$proc steps=$from-$n max_tier=$max"
-cleanup() { [ -n "$ptoken" ] && rm -f "$DEVOPS_STATE/approvals/procedure-$ptoken"; return 0; }
-trap cleanup EXIT
 
 fail() {
   echo "FAILED at step $1: $2" | tee -a "$report" >&2
@@ -144,23 +130,23 @@ while [ "$i" -le "$n" ]; do
   rc=0
   case "$t" in
     confirm)
-      if [ -n "$approved_by_token" ]; then echo "confirmed in the approval" | tee -a "$report"
+      if [ -z "$ask_confirms" ]; then echo "reminder: $(sf "$s" confirm)" | tee -a "$report"
       elif tty_confirm "$(sf "$s" confirm)"; then echo "confirmed on the terminal" >> "$report"
       else fail "$i" "not confirmed"; fi ;;
     tool)
       # shellcheck disable=SC2086
       out="$("$DEVOPS_ROOT/bin/devops" $cmd 2>&1)" || rc=$?
       printf '%s\n' "$out" | tee -a "$report"
-      [ "$rc" -eq 10 ] && fail "$i" "the tool asked for its own approval (tier 3?); approve it, then resume from this step"
+      [ "$rc" -eq 10 ] && fail "$i" "this step sends a transaction and needs the user's approval; after they approve, resume from this step"
       [ "$rc" -eq 0 ] || fail "$i" "exit $rc" ;;
     ssh|backup)
       h="$(step_host "$s")"
-      GATE_HOST="$h"; gate "$et" "deploy step $i: $cmd" "$cmd"
+      GATE_HOST="$h"; DEVOPS_RERUN="deploy $site $proc --from-step $i" gate "$et" "deploy step $i: $cmd" "$cmd"
       out="$(host_run "$site" "$h" "$cmd" 2>&1)" || rc=$?
       printf '%s\n' "$out" | tee -a "$report"
       [ "$rc" -eq 0 ] || fail "$i" "exit $rc on $h" ;;
     local)
-      gate "$et" "deploy step $i: $cmd" "$cmd"
+      DEVOPS_RERUN="deploy $site $proc --from-step $i" gate "$et" "deploy step $i: $cmd" "$cmd"
       out="$(cd "$DEVOPS_ROOT" && bash -c "$cmd" 2>&1)" || rc=$?
       printf '%s\n' "$out" | tee -a "$report"
       [ "$rc" -eq 0 ] || fail "$i" "exit $rc" ;;

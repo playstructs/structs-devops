@@ -178,7 +178,7 @@ def classify(command: str):
             return "2", "command substitution runs a command that is not on the read-only allowlist"
     if all(segment_allowed(s, allow) for s in split_segments(inner)):
         return "0", "read-only allowlist"
-    return "2", "not on the read-only allowlist; treat as service-affecting"
+    return "2", "not on the read-only allowlist (may change something)"
 
 
 def main():

@@ -1,9 +1,8 @@
 {
   "permissions": {
     "deny": [
-      "Read(./local/**)",
+      "Read(./local/secrets.env)",
       "Read(./state/approvals/**)",
-      "Read(./.devops.env)",
       "Bash(printenv:*)",
       "Bash(env)"
     ]

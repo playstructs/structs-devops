@@ -1,11 +1,13 @@
-# Command policy shared by `devops ssh -- <cmd>`, tools/agents/guard.sh (harness
-# hooks) and agents reading this file. Columns (tab-separated):
+# Command policy shared by `devops ssh -- <cmd>`, `devops deploy` steps and
+# tools/agents/guard.sh (harness hooks). It labels commands for the audit log;
+# only tier 3 (an on-chain transaction) asks the user, and only class S is refused.
+# Columns (tab-separated):
 #   tier   kind   pattern   reason
 # kind "re"  : Python regex searched in the whole command; the highest matching tier wins.
 # kind "cmd" : read-only allowlist prefix. A command is tier 0 only when EVERY
 #              segment (split on ; && || | and newlines) starts with an allowlisted prefix.
-# kind "secret": the command would print secret material; always refused.
-# Anything else defaults to tier 2 (service-affecting: ask the user first).
+# kind "secret": the command would print secret material; refused.
+# Anything else defaults to tier 2 (may change something; it runs and is logged).
 # Built into classify.py: `docker exec <c> <cmd>` is judged by <cmd>, and psql is
 # tier 0 only with PGOPTIONS default_transaction_read_only=on (a SELECT can write
 # through a function). Prefer `devops debug pg`, which always sets it.
@@ -19,16 +21,18 @@ S	secret	\bkeys\s+add\b[^|;&]*--output\s+json	keys add --output json prints the 
 S	secret	(^|[\s|;&(])(printenv|env)\s*($|[|;&)])	dumps environment
 S	secret	docker\s+inspect\b[^|;&]*\.Config\.Env|docker\s+exec\b[^|;&]*\b(printenv|env)\b	dumps container environment
 S	secret	\becho\s+["']?\$\{?[A-Z_]*(MNEMONIC|SECRET|PASSWORD|TOKEN|KEY)\b	echoes a secret variable
-# --- tier 3: irreversible, on-chain, keys, data loss ---
-3	re	\bstructsd\s+tx\b(?![^|;&]*--dry-run)(?![^|;&]*--generate-only)	broadcasts a transaction (use devops tx)
-3	re	\bstructsd\s+keys\s+(add|delete|import|rename)\b	key management (use devops account)
-3	re	\b(unsafe-reset-all|reset-state|rollback)\b	chain data reset or rollback
-3	re	\brm\s+-[a-zA-Z]*[rf][a-zA-Z]*\s+[^|;&]*(chaindata|cosmovisor|/data\b|/var/lib/docker|pgdata|postgres)	deletes chain or database data
-3	re	docker\s+(volume\s+(rm|prune)|system\s+prune|compose\b[^|;&]*\bdown\b[^|;&]*(-v|--volumes))	deletes docker volumes
-3	re	(?i)\b(drop\s+(table|database|schema|role)|truncate\s+table|delete\s+from)\b	destructive SQL
-3	re	\bstructs-pg-init\b	never run structs-pg-init on a live site
-3	re	certbot\b[^|;&]*--dry-run	certbot --dry-run runs the pre_hook (stops Caddy) on the public node
-# --- tier 2: service-affecting ---
+# --- tier 3: on-chain transactions (the only tier that asks the user) ---
+3	re	\bstructsd\s+tx\s+(?!(sign|sign-batch|multi-sign|multisign|encode|decode|validate-signatures)\b)(?![^|;&]*--(dry-run|generate-only))	broadcasts a transaction (devops tx simulates first)
+3	re	\bcurl\b(?=[^|;&]*/cosmos/tx/v1beta1/txs(?![/\w]))(?=[^|;&]*(\s-d\b|\s--data|\s-X\s*["']?POST|\s--request\s*["']?POST))	broadcasts a transaction over the REST API
+3	re	\bbroadcast_tx_(sync|async|commit)\b	broadcasts a transaction over CometBFT RPC
+# --- tier 2: affects services or data (runs; the reason is logged) ---
+2	re	\bstructsd\s+keys\s+(add|delete|import|rename)\b	key management on the host
+2	re	\b(unsafe-reset-all|reset-state|rollback)\b	chain data reset or rollback; back up first
+2	re	\brm\s+-[a-zA-Z]*[rf][a-zA-Z]*\s+[^|;&]*(chaindata|cosmovisor|/data\b|/var/lib/docker|pgdata|postgres)	deletes chain or database data
+2	re	docker\s+(volume\s+(rm|prune)|system\s+prune|compose\b[^|;&]*\bdown\b[^|;&]*(-v|--volumes))	deletes docker volumes
+2	re	(?i)\b(drop\s+(table|database|schema|role)|truncate\s+table|delete\s+from)\b	destructive SQL; save the rows first
+2	re	\bstructs-pg-init\b	structs-pg-init re-initializes the database; not for a live site
+2	re	certbot\b[^|;&]*--dry-run	certbot --dry-run runs the pre_hook, which stops Caddy on the public node
 2	re	docker\s+compose\b[^|;&]*\b(up|down|restart|stop|start|kill|rm|pull|build|create)\b	changes compose services
 2	re	docker\s+(restart|stop|start|kill|rm|run|pull|update)\b	changes containers
 2	re	systemctl\s+(restart|stop|start|reload|disable|enable|kill)\b	changes system services
@@ -122,6 +126,6 @@ S	secret	\becho\s+["']?\$\{?[A-Z_]*(MNEMONIC|SECRET|PASSWORD|TOKEN|KEY)\b	echoes
 0	cmd	printf	read-only
 0	cmd	true	no-op
 0	cmd	sleep	no-op
-0	cmd	devops	the devops CLI gates its own actions
-0	cmd	./bin/devops	the devops CLI gates its own actions
-0	cmd	bin/devops	the devops CLI gates its own actions
+0	cmd	devops	the devops CLI labels its own actions
+0	cmd	./bin/devops	the devops CLI labels its own actions
+0	cmd	bin/devops	the devops CLI labels its own actions

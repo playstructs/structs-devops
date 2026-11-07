@@ -42,14 +42,15 @@ node stall shows up as stale data everywhere.
    node stopped at the bad height until the data is collected and the
    maintainers have it (see the 2026-09-13 incident).
 5. Recovery steps that rewrite chain data (rollback, resync, resetting
-   state) are tier 3 and need explicit approval.
+   state) destroy the evidence and can take hours: collect the evidence and
+   back up the data directory first.
 
 ## Signatures
 
 | Log or observation | Cause | Fix |
 |---|---|---|
 | `wrong Block.Header.LastResultsHash`, then `CONSENSUS FAILURE!!!`; RPC still serves the frozen height | This node computed different block results (events, gas) for the previous height | Collect evidence (seen 2026-09-13: one node froze while the others moved on), compare nodes, roll back one height or resync [3] |
-| `wrong Block.Header.AppHash` | State divergence | Same as above; never `unsafe-reset-all` without a backup [3] |
+| `wrong Block.Header.AppHash` | State divergence | Same as above; never `unsafe-reset-all` without a backup [2] |
 | `UPGRADE "v0.X.0" NEEDED at height …`, node exits repeatedly | `cosmovisor/current` still on the old binary | [runbooks/cosmovisor-recovery.md](../../../runbooks/cosmovisor-recovery.md) fix path 1 [2] |
 | Pong timeouts, peer churn, frozen height, RAM fine | Two live nodes share `config/node_key.json` (copied chaindata) | `devops node <site> rotate-node-key` on the copy [2] |
 | `encoding/hex: odd length hex string` crash loop | Typo in `persistent_peers` or `seeds` (ids are 40 hex chars) | Fix the peer list [2] |
