@@ -12,14 +12,14 @@ block_time_seconds: 6
 # Branch of playstructs/structs-networks used by network-config.sh. Only read on
 # a fresh init; existing hosts may still carry older values (112b, 115b) in .env.
 network_version: 116b
-last_verified: 2026-11-05
+last_verified: 2026-11-17
 
 binary:
-  version: v0.22.0
-  since_height: 3353000
-  cosmovisor_current: upgrades/v0.22.0
+  version: v0.23.0
+  since_height: 3621500
+  cosmovisor_current: upgrades/v0.23.0
   cosmovisor_version: v1.7.0
-  git_commit: 96cea3a322c406b46ca1feb880dc4497ebd9353f
+  git_commit: f6dc0047fa896aaa4fdc4be21eb22c12f7ae3e1e
   cometbft: 0.38.26
 
 # From docker-structsd/scripts/upgrades.conf.sh; append on every upgrade.
@@ -30,6 +30,7 @@ upgrades:
   - { name: v0.19.0, height: 1335904 }
   - { name: v0.21.0, height: 2283000, date: 2026-08-24 }
   - { name: v0.22.0, height: 3353000, proposal: 7 }
+  - { name: v0.23.0, height: 3621500, date: 2026-11-16, proposal: 8 }
 
 # Public endpoints every client can use. Peers: playstructs/structs-networks
 # addrbook.json, or your own list in the inventory's network.yaml.

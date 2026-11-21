@@ -8,6 +8,16 @@ inner="$(mktemp)"
 trap 'rm -f "$inner"' EXIT
 cat > "$inner" <<'INNER'
 set -euo pipefail
+# Image PATH puts /root/go/bin/structsd first (stale). Ephemeral containers
+# have no cosmovisor/current; use the newest staged upgrade binary.
+if [ -x /opt/structs/cosmovisor/current/bin/structsd ]; then
+  STRUCTSD=/opt/structs/cosmovisor/current/bin/structsd
+else
+  STRUCTSD="$(ls -1d /opt/structs/cosmovisor/upgrades/*/bin/structsd 2>/dev/null | sort -V | tail -1)"
+fi
+[ -n "${STRUCTSD:-}" ] && [ -x "$STRUCTSD" ] || STRUCTSD=structsd
+structsd() { command "$STRUCTSD" "$@"; }
+echo "binary=$STRUCTSD"
 module="$1"; msg="$2"; shift 2
 flags=(); pos=()
 seen=""
@@ -27,7 +37,9 @@ if [ -n "${TX_EXPECT:-}" ] && [ "$ADDR" != "$TX_EXPECT" ]; then
 fi
 catching="$(structsd status --node "$TX_NODE" 2>/dev/null | jq -r '(.sync_info // .SyncInfo).catching_up' 2>/dev/null || echo unknown)"
 echo "node=$TX_NODE catching_up=$catching"
-common=(--chain-id "$TX_CHAIN_ID" --node "$TX_NODE" --keyring-backend test --gas auto --gas-adjustment "$TX_GAS_ADJ")
+common=(--chain-id "$TX_CHAIN_ID" --node "$TX_NODE" --keyring-backend test)
+# --gas auto with --dry-run makes the SDK look up the key by an empty name and fail.
+gas=(--gas auto --gas-adjustment "$TX_GAS_ADJ")
 echo "msg=$module $msg ${flags[*]-} -- ${pos[*]-}"
 echo "=== simulate ==="
 structsd tx "$module" "$msg" ${flags[@]+"${flags[@]}"} --from "$ADDR" "${common[@]}" --dry-run -- ${pos[@]+"${pos[@]}"}
@@ -35,7 +47,7 @@ echo "SIMULATE_OK"
 [ "$TX_MODE" = "broadcast" ] || exit 0
 if [ "$catching" != "false" ]; then echo "FATAL: node catching_up=$catching; refusing to broadcast" >&2; exit 1; fi
 echo "=== broadcast ==="
-out="$(structsd tx "$module" "$msg" ${flags[@]+"${flags[@]}"} --from "$TX_NAME" "${common[@]}" -y --output json -- ${pos[@]+"${pos[@]}"})"
+out="$(structsd tx "$module" "$msg" ${flags[@]+"${flags[@]}"} --from "$TX_NAME" "${common[@]}" "${gas[@]}" -y --output json -- ${pos[@]+"${pos[@]}"})"
 hash="$(printf '%s' "$out" | jq -r '.txhash')"
 code="$(printf '%s' "$out" | jq -r '.code')"
 echo "txhash=$hash checktx_code=$code"

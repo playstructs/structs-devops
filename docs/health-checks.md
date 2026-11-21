@@ -55,7 +55,7 @@ with `checks.skip: [id]`; `checks.in_all: false` keeps a site out of `all` runs.
 - **sync-lag WARN + tsa-queue CRIT** together usually means the indexer fell behind and the TSA rejects every signing attempt (`save_signed_transaction_v022` needs `source_height < indexed_height`). Fix the indexer first.
 - **tsa-queue "queue not draining"** with plenty of available accounts: check `TSA_WORKERS` (30 workers on 4 cores outlast a block), then the TSA logs.
 - **tsa-queue rows older than 24 h** for one command (for example `guild-membership-join-proxy`): rows the TSA can never claim. See skill `structs-debug-tsa`.
-- **containers: structs-grass unhealthy** is known and ignored on the guild sites.
+- **containers: structs-grass unhealthy** was a known ignore through 2026-11-06. After `sha256:4da9fa42` (unique-probe healthcheck) it is healthy on sn-corp and orbital-hydro and is no longer ignored.
 - **apache-workers high + endpoints slow** with low CPU: a client hammering `/api/*`; the nginx 5 s cache should absorb GETs, so check it is in the path (`devops patches <site> check`).
 - **endpoints structs-app-og 503 while healthz is OK**: the preview renderer, not the database. Check `devops logs <site> structs-app`.
 - **node-health node_id differs**: someone copied `node_key.json` between nodes. Two nodes with one id fight for peers.

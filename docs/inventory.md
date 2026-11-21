@@ -146,7 +146,7 @@ patches:
   manifest: patches/manifest.tsv
   pre_helpers: [my-apache-tuning]   # tools/host/<name>.sh (framework or inventory), run before the manifest
   ga4: G-XXXXXXX                    # optional; inserted into the current base.html.twig
-  after_apply: "docker compose up -d structs-webapp"   # tier 2; printed, or run with --restart
+  after_apply: "docker compose up -d --no-deps structs-webapp"   # tier 2; printed, or run with --restart
 ```
 
 `manifest.tsv` columns (tab-separated, `-` for empty):
